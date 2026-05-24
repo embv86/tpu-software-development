@@ -9,6 +9,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -27,10 +28,11 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/v1/users/**").permitAll()
-                        .anyRequest().authenticated()
-                );
+                        .requestMatchers("/api/v1/auth/**").permitAll() // Сюда пускаем без фильтров шлюза
+                        .anyRequest().authenticated()                  // Для остального нужен X-User-Id
+                )
+                // ВСТАВЛЯЕМ НАШ ФИЛЬТР В ЦЕПОЧКУ ПОСТАВЩИКОВ БЕЗОПАСНОСТИ
+                .addFilterBefore(new GatewayHeaderFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

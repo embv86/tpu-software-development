@@ -22,7 +22,9 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: user-service/Dockerfile
+      dockerfile: Dockerfile
+      args:
+        - SERVICE_NAME=user-service
     container_name: marketplace-user-service
     ports:
       - "8081:8081"
@@ -32,7 +34,19 @@ services:
       - SPRING_DATASOURCE_PASSWORD=postgres
     depends_on:
       postgres-users:
-        condition: service_healthy # Ждем полной готовности Postgres
+        condition: service_healthy
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - SERVICE_NAME=gateway-service
+    container_name: marketplace-gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - user-service
 
 volumes:
   pgdata_users:
