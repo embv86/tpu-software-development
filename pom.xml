@@ -23,6 +23,7 @@
     <modules>
         <module>user-service</module>
         <module>gateway-service</module>
+        <module>listing-service</module>
     </modules>
 
     <dependencyManagement>

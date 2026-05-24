@@ -6,12 +6,14 @@ WORKDIR /app
 COPY pom.xml .
 COPY user-service/pom.xml ./user-service/
 COPY gateway-service/pom.xml ./gateway-service/
+COPY listing-service/pom.xml ./listing-service/
 
-# Копируем исходный код всех сервисов
+# ВАЖНО: Копируем папки src целиком (вместе с java и resources внутри них)
 COPY user-service/src ./user-service/src
 COPY gateway-service/src ./gateway-service/src
+COPY listing-service/src ./listing-service/src
 
-# Передаем имя сервиса как аргумент (по умолчанию user-service)
+# Передаем имя сервиса как аргумент
 ARG SERVICE_NAME=user-service
 
 # Собираем конкретный микросервис
@@ -21,7 +23,6 @@ RUN mvn clean package -pl ${SERVICE_NAME} -am -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Снова используем аргумент для копирования нужного jar-файла
 ARG SERVICE_NAME=user-service
 COPY --from=build /app/${SERVICE_NAME}/target/${SERVICE_NAME}-0.0.1-SNAPSHOT.jar app.jar
 
