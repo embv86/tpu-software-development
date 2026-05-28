@@ -6,6 +6,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -23,20 +24,36 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
+    // Белый список URL, которые шлюз пропускает без проверки токена
+    private static final List<String> openApiEndpoints = List.of(
+            "/api/v1/auth/register",
+            "/api/v1/auth/login"
+    );
+
     public JwtAuthenticationFilter() {
         super(Config.class);
     }
 
     public static class Config {
-        // Здесь можно оставлять пустую конфигурацию, если кастомные параметры не нужны
     }
 
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+            String path = request.getURI().getPath();
 
-            // 1. Проверяем наличие заголовка Authorization
+            // 1. Проверяем, входит ли путь в белый список
+            boolean isOpenEndpoint = openApiEndpoints.stream().anyMatch(path::startsWith);
+
+            // 2. Если это GET-запрос к объявлениям, его тоже разрешаем смотреть гостям
+            boolean isGetListings = request.getMethod() == HttpMethod.GET && path.startsWith("/api/v1/listings");
+
+            if (isOpenEndpoint || isGetListings) {
+                return chain.filter(exchange); // Пропускаем дальше без авторизации
+            }
+
+            // 3. Для всех остальных запросов (POST, PUT, DELETE) требуем токен
             if (!request.getHeaders().containsKey("Authorization")) {
                 return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
             }
@@ -49,7 +66,6 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             String token = authHeader.substring(7);
 
             try {
-                // 2. Валидируем токен и извлекаем Claims
                 SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
                 Claims claims = Jwts.parser()
                         .verifyWith(key)
@@ -57,9 +73,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                         .parseSignedClaims(token)
                         .getPayload();
 
-                // 3. Модифицируем запрос: прокидываем userId и roles в заголовках дальше
                 List<String> roles = claims.get("roles", List.class);
-                String userId = claims.getId(); // Мы записывали ID в поле jti (JWT ID)
+                String userId = claims.getId();
 
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", userId)

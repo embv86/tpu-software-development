@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Table(name = "listings")
 @Getter
 @Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
