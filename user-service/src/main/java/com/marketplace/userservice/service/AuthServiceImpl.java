@@ -4,6 +4,7 @@ import com.marketplace.userservice.dto.*;
 import com.marketplace.userservice.entity.Role;
 import com.marketplace.userservice.entity.User;
 import com.marketplace.userservice.config.JwtUtils;
+import com.marketplace.userservice.messaging.UserEventPublisher;
 import com.marketplace.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private final UserEventPublisher userEventPublisher;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
@@ -70,5 +72,14 @@ public class AuthServiceImpl implements AuthService {
                 user.getEmail(),
                 user.getRoles().stream().map(Enum::name).collect(Collectors.toList())
         );
+    }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        // 1. Твоя текущая логика удаления юзера из БД биллинга/авторизации
+        userRepository.deleteById(userId);
+
+        // 2. Асинхронно пуляем новость в космос (в RabbitMQ)
+        userEventPublisher.publishUserDeleted(userId);
     }
 }

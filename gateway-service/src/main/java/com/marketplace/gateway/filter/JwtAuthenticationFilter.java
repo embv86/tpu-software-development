@@ -2,6 +2,7 @@ package com.marketplace.gateway.filter;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -66,7 +67,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             String token = authHeader.substring(7);
 
             try {
-                SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+                SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
                 Claims claims = Jwts.parser()
                         .verifyWith(key)
                         .build()
@@ -74,7 +75,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                         .getPayload();
 
                 List<String> roles = claims.get("roles", List.class);
-                String userId = claims.getId();
+                String userId = (String) claims.get("jti");
 
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", userId)

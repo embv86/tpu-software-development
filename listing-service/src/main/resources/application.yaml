@@ -11,6 +11,12 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
+  rabbitmq:
+    host: marketplace-rabbitmq
+    port: 5672
+    username: guest
+    password: guest
+
   jpa:
     hibernate:
       ddl-auto: validate

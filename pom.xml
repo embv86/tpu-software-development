@@ -24,6 +24,7 @@
         <module>user-service</module>
         <module>gateway-service</module>
         <module>listing-service</module>
+        <module>image-service</module>
     </modules>
 
     <dependencyManagement>

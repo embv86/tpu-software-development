@@ -1,5 +1,6 @@
 package com.marketplace.listingservice.service;
 
+import org.springframework.transaction.annotation.Transactional;
 import com.marketplace.listingservice.client.UserClient;
 import com.marketplace.listingservice.dto.CreateListingRequest;
 import com.marketplace.listingservice.dto.ListingResponse;
@@ -92,5 +93,12 @@ public class ListingService {
                 .createdAt(listing.getCreatedAt())
                 .owner(ownerDto)
                 .build();
+    }
+
+    @Transactional
+    public void deleteAllListingsByOwnerId(Long ownerId) {
+        System.out.println(">>> [LISTING SERVICE] Начинаем удаление всех объявлений для пользователя с ID: " + ownerId);
+        listingRepository.deleteAllByOwnerId(ownerId);
+        System.out.println(">>> [LISTING SERVICE] Все объявления пользователя успешно удалены из базы данных.");
     }
 }

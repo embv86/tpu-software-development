@@ -1,30 +1,31 @@
-# Шаг 1: Общая сборка всех pom.xml для кэширования зависимостей
+# --- Шаг 1: Сборка ---
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Копируем родительский POM и структуры ВСЕХ модулей
+# 1. Сначала копируем ТОЛЬКО pom.xml файлы. Это критически важно для кэширования!
 COPY pom.xml .
 COPY user-service/pom.xml ./user-service/
 COPY gateway-service/pom.xml ./gateway-service/
 COPY listing-service/pom.xml ./listing-service/
 
-# ВАЖНО: Копируем папки src целиком (вместе с java и resources внутри них)
+# 2. Заставляем Мавен скачать все зависимости из интернета заранее.
+# Этот шаг выполнится ОДИН раз и закэшируется. При изменении кода он НЕ будет перезапускаться.
+RUN mvn dependency:go-offline -B
+
+# 3. Только ТЕПЕРЬ копируем исходный код (src)
 COPY user-service/src ./user-service/src
 COPY gateway-service/src ./gateway-service/src
 COPY listing-service/src ./listing-service/src
 
-# Передаем имя сервиса как аргумент
-ARG SERVICE_NAME=user-service
-
-# Собираем конкретный микросервис
+# 4. Принимаем аргумент имени сервиса и собираем его (зависимости уже в кэше, сборка займет пару секунд)
+ARG SERVICE_NAME
 RUN mvn clean package -pl ${SERVICE_NAME} -am -DskipTests
 
-# Шаг 2: Легковесный запуск
+# --- Шаг 2: Запуск ---
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-ARG SERVICE_NAME=user-service
-COPY --from=build /app/${SERVICE_NAME}/target/${SERVICE_NAME}-0.0.1-SNAPSHOT.jar app.jar
+ARG SERVICE_NAME
+COPY --from=build /app/${SERVICE_NAME}/target/*.jar app.jar
 
-EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
