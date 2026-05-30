@@ -5,6 +5,14 @@ spring:
   application:
     name: gateway-service
 
+  codec:
+    max-in-memory-size: 40MB
+
+  web:
+    resources:
+      max-in-memory-size: 40MB
+
+
   cloud:
     gateway:
       routes:
@@ -20,7 +28,6 @@ spring:
           filters:
             - JwtAuthenticationFilter
 
-        # НАШ НОВЫЙ МАРШРУТ ДЛЯ ОБЪЯВЛЕНИЙ
         - id: listing-route
           uri: http://listing-service:8082
           predicates:
@@ -28,6 +35,13 @@ spring:
           filters:
             - JwtAuthenticationFilter
 
+        - id: image-service
+          uri: http://image-service:8084
+          predicates:
+            - Path=/api/v1/images/**
+          filters:
+            - JwtAuthenticationFilter
+
 app:
   jwt:
-    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    secret: 5367566B59703373363941404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373363941404E635266556A586E3272357538782F

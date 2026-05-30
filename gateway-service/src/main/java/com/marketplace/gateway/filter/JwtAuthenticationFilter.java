@@ -67,16 +67,29 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             String token = authHeader.substring(7);
 
             try {
-                SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
+                // Чистый getBytes(StandardCharsets.UTF_8), точно так же как в JwtUtils!
+                SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
                 Claims claims = Jwts.parser()
                         .verifyWith(key)
                         .build()
                         .parseSignedClaims(token)
                         .getPayload();
 
-                List<String> roles = claims.get("roles", List.class);
-                String userId = (String) claims.get("jti");
+                // 1. Извлекаем роли
+                List<?> rawRoles = claims.get("roles", List.class);
+                List<String> roles = rawRoles != null
+                        ? rawRoles.stream().map(Object::toString).toList()
+                        : List.of();
 
+                // 2. Извлекаем ID пользователя (В JwtUtils метод .id() записывает id в клейм "jti")
+                String userId = claims.getId(); // Это встроенный метод jjwt для получения клейма "jti"
+
+                if (userId == null) {
+                    throw new RuntimeException("User ID (jti claim) missing in token");
+                }
+
+                // 3. Пробрасываем заголовки в микросервисы
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", userId)
                         .header("X-User-Roles", String.join(",", roles))
@@ -85,6 +98,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
             } catch (Exception e) {
+                System.out.println(">>> [GATEWAY AUTH ERROR]: " + e.getMessage());
                 return onError(exchange, "Invalid Token", HttpStatus.FORBIDDEN);
             }
         };

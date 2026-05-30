@@ -2,12 +2,16 @@ package com.marketplace.listingservice.service;
 
 import org.springframework.transaction.annotation.Transactional;
 import com.marketplace.listingservice.client.UserClient;
+import com.marketplace.listingservice.config.RabbitMqConfig; // Проверяй маленькую q!
 import com.marketplace.listingservice.dto.CreateListingRequest;
+import com.marketplace.listingservice.dto.ListingImageMessage;
 import com.marketplace.listingservice.dto.ListingResponse;
 import com.marketplace.listingservice.dto.UserDto;
 import com.marketplace.listingservice.entity.Listing;
 import com.marketplace.listingservice.repository.ListingRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,11 +19,14 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ListingService {
 
     private final ListingRepository listingRepository;
     private final UserClient userClient;
+    private final RabbitTemplate rabbitTemplate;
 
+    @Transactional
     public Listing createListing(CreateListingRequest request, Long ownerId) {
         Listing listing = Listing.builder()
                 .title(request.getTitle())
@@ -30,42 +37,73 @@ public class ListingService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return listingRepository.save(listing);
+        Listing savedListing = listingRepository.save(listing);
+
+        if (request.getImageIds() != null && !request.getImageIds().isEmpty()) {
+            ListingImageMessage message = new ListingImageMessage(
+                    savedListing.getId(),
+                    request.getImageIds(),
+                    "CREATE"
+            );
+
+            // Используем правильное имя конфига с маленькой q
+            rabbitTemplate.convertAndSend(
+                    RabbitMqConfig.IMAGE_EXCHANGE,
+                    RabbitMqConfig.PROCESS_ROUTING_KEY,
+                    message
+            );
+            log.info(">>> [LISTING-SERVICE] Отправлено сообщение CREATE для картинок объявления ID: {}", savedListing.getId());
+        }
+
+        return savedListing;
     }
 
-    // 1. Получить все объявления
     public List<Listing> getAllListings() {
         return listingRepository.findAll();
     }
 
-    // 2. Получить конкретное объявление (Сюда мы потом прикрутим Feign!)
     public Listing getListingById(Long id) {
         return listingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Объявление с id " + id + " не найдено"));
     }
 
-    // 3. Обновить объявление (с проверкой на владельца)
+    @Transactional
     public Listing updateListing(Long id, CreateListingRequest request, Long currentUserId) {
         Listing listing = getListingById(id);
 
-        // Защита: править может только автор
         if (!listing.getOwnerId().equals(currentUserId)) {
             throw new RuntimeException("У вас нет прав на редактирование этого объявления");
         }
 
         listing.setTitle(request.getTitle());
         listing.setDescription(request.getDescription());
-        listing.getPrice(); // если используешь сеттеры, или через @Setter Lombok'а:
         listing.setPrice(request.getPrice());
 
-        return listingRepository.save(listing);
+        Listing updatedListing = listingRepository.save(listing);
+
+        if (request.getImageIds() != null) {
+            ListingImageMessage message = new ListingImageMessage(
+                    updatedListing.getId(),
+                    request.getImageIds(),
+                    "UPDATE"
+            );
+
+            // Используем правильное имя конфига с маленькой q
+            rabbitTemplate.convertAndSend(
+                    RabbitMqConfig.IMAGE_EXCHANGE,
+                    RabbitMqConfig.PROCESS_ROUTING_KEY,
+                    message
+            );
+            log.info(">>> [LISTING-SERVICE] Отправлено сообщение UPDATE для картинок объявления ID: {}", updatedListing.getId());
+        }
+
+        return updatedListing;
     }
 
-    // 4. Удалить объявление (Сюда мы потом прикрутим RabbitMQ!)
+    @Transactional
     public void deleteListing(Long id, Long currentUserId) {
         Listing listing = getListingById(id);
 
-        // Защита: удалять может только автор
         if (!listing.getOwnerId().equals(currentUserId)) {
             throw new RuntimeException("У вас нет прав на удаление этого объявления");
         }
@@ -81,7 +119,7 @@ public class ListingService {
         try {
             ownerDto = userClient.getUserById(listing.getOwnerId());
         } catch (Exception e) {
-            System.err.println("Ошибка вызова user-service через Feign: " + e.getMessage());
+            log.error("Ошибка вызова user-service через Feign: {}", e.getMessage());
         }
 
         return ListingResponse.builder()
@@ -97,8 +135,8 @@ public class ListingService {
 
     @Transactional
     public void deleteAllListingsByOwnerId(Long ownerId) {
-        System.out.println(">>> [LISTING SERVICE] Начинаем удаление всех объявлений для пользователя с ID: " + ownerId);
+        log.info(">>> [LISTING SERVICE] Начинаем удаление всех объявлений для пользователя с ID: {}", ownerId);
         listingRepository.deleteAllByOwnerId(ownerId);
-        System.out.println(">>> [LISTING SERVICE] Все объявления пользователя успешно удалены из базы данных.");
+        log.info(">>> [LISTING SERVICE] Все объявления пользователя успешно удалены из базы данных.");
     }
 }

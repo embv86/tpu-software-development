@@ -33,6 +33,60 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: marketplace-rabbitmq
+    ports:
+      - "5672:5672"   # Порт для отправки сообщений из Spring Boot приложения
+      - "15672:15672" # Порт для веб-панели управления брокером
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  minio:
+    image: minio/minio:latest
+    container_name: marketplace-minio
+    ports:
+      - "9000:9000"       # Сюда будут ходить микросервисы (API)
+      - "9001:9001"       # Веб-консоль управления MinIO (логин/пароль: minioadmin)
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Наш новый сервис обработки изображений
+  image-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - SERVICE_NAME=image-service
+    container_name: marketplace-image-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-listings:5432/marketplace_listings_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      postgres-listings:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
   user-service:
     build:
       context: .
@@ -48,6 +102,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=postgres
     depends_on:
       postgres-users:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   listing-service:
@@ -65,6 +121,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=postgres
     depends_on:
       postgres-listings:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   gateway-service:
