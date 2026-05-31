@@ -29,10 +29,13 @@ public class ListingController {
         return ResponseEntity.ok(created);
     }
 
-    // Получить все объявления (Каталог)
+    // Получить все объявления (с поддержкой фильтрации по владельцу)
     @GetMapping
-    public ResponseEntity<List<ListingResponse>> getAllListings() {
-        return ResponseEntity.ok(listingService.getAllListings());
+    public ResponseEntity<List<ListingResponse>> getAllListings(
+            @RequestParam(value = "ownerId", required = false) Long ownerId) {
+
+        List<ListingResponse> listings = listingService.getAllListings(ownerId);
+        return ResponseEntity.ok(listings);
     }
 
     // Получить конкретное объявление по ID

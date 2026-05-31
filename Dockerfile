@@ -8,6 +8,7 @@ COPY user-service/pom.xml ./user-service/
 COPY gateway-service/pom.xml ./gateway-service/
 COPY listing-service/pom.xml ./listing-service/
 COPY image-service/pom.xml ./image-service/
+COPY chat-service/pom.xml ./chat-service/
 
 # 2. ТЕПЕРЬ скачиваем зависимости (pom.xml уже на месте!)
 RUN --mount=type=cache,target=/root/.m2 \
@@ -18,6 +19,7 @@ COPY user-service/src ./user-service/src
 COPY gateway-service/src ./gateway-service/src
 COPY listing-service/src ./listing-service/src
 COPY image-service/src ./image-service/src
+COPY chat-service/src ./chat-service/src
 
 # 4. Собираем с параллельной компиляцией и кэшем
 ARG SERVICE_NAME

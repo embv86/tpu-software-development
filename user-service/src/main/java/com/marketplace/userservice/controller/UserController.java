@@ -1,9 +1,10 @@
 package com.marketplace.userservice.controller;
 
+import com.marketplace.userservice.dto.UpdateProfileRequest;
 import com.marketplace.userservice.entity.User;
 import com.marketplace.userservice.repository.UserRepository;
+import com.marketplace.userservice.service.UserService; // Импортируем новый сервис
 import lombok.RequiredArgsConstructor;
-import org.springframework.amqp.rabbit.core.RabbitTemplate; // Импортируем Кролика
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserRepository userRepository;
-    private final RabbitTemplate rabbitTemplate; // Внедряем темплейт Кролика
+    private final UserService userService; // Внедряем чистый UserService
 
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserProfile(@PathVariable Long id) {
@@ -23,23 +24,18 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // НАШ НОВЫЙ МЕТОД УДАЛЕНИЯ С ОТПРАВКОЙ В ОЧЕРЕДЬ
+    @PutMapping("/me")
+    public ResponseEntity<User> updateProfile(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody UpdateProfileRequest request) {
+
+        User updatedUser = userService.updateUserProfile(userId, request);
+        return ResponseEntity.ok(updatedUser);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteUser(@PathVariable Long id) {
-        // 1. Проверяем, существует ли пользователь в БД
-        if (!userRepository.existsById(id)) {
-            return ResponseEntity.status(404).body("User not found!");
-        }
-
-        // 2. Удаляем пользователя из нашей базы данных
-        userRepository.deleteById(id);
-
-        // 3. Отправляем ID удаленного пользователя в RabbitMQ
-        // Название очереди берем с твоего скриншота: "user.deleted.listing.queue"
-        rabbitTemplate.convertAndSend("user.deleted.listing.queue", id);
-
-        System.out.println(">>> [USER-SERVICE] Отправлено сообщение об удалении юзера с ID: " + id);
-
-        return ResponseEntity.ok("User deleted successfully and event sent to RabbitMQ!");
+        userService.deleteUser(id);
+        return ResponseEntity.ok("User deleted successfully!");
     }
 }

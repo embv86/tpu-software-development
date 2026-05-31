@@ -33,12 +33,29 @@ services:
       timeout: 5s
       retries: 5
 
+  postgres-chats:
+    image: postgres:16-alpine
+    container_name: marketplace-chats-db
+    environment:
+      POSTGRES_DB: marketplace_chats_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_chats:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d marketplace_chats_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: marketplace-rabbitmq
     ports:
-      - "5672:5672"   # Порт для отправки сообщений из Spring Boot приложения
-      - "15672:15672" # Порт для веб-панели управления брокером
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
@@ -48,16 +65,17 @@ services:
       timeout: 5s
       retries: 5
 
-
   minio:
     image: minio/minio:latest
     container_name: marketplace-minio
     ports:
-      - "9000:9000"       # Сюда будут ходить микросервисы (API)
-      - "9001:9001"       # Веб-консоль управления MinIO (логин/пароль: minioadmin)
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
@@ -65,7 +83,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Наш новый сервис обработки изображений
   image-service:
     build:
       context: .
@@ -79,6 +96,9 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-listings:5432/marketplace_listings_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      # ФИКС ОШИБКИ 500: Явно связываем Спринг с бакетами MinIO
+      - MINIO_BUCKETS_RAW=raw-images
+      - MINIO_BUCKETS_PROCESSED=market-images
     depends_on:
       postgres-listings:
         condition: service_healthy
@@ -138,21 +158,42 @@ services:
       - user-service
       - listing-service
 
+  chat-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - SERVICE_NAME=chat-service
+    container_name: marketplace-chat-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-chats:5432/marketplace_chats_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      postgres-chats:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   frontend:
-      build:
-        context: ./frontend
-        dockerfile: Dockerfile
-      container_name: marketplace-frontend
-      ports:
-        - "5173:5173"
-      volumes:
-        - ./frontend:/app
-        - /app/node_modules
-      environment:
-        - VITE_API_URL=http://localhost:8080
-      depends_on:
-        - gateway-service
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: marketplace-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - gateway-service
 
 volumes:
   pgdata_users:
   pgdata_listings:
+  pgdata_chats:
+  minio_data:

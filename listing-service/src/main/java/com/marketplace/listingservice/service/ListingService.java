@@ -63,9 +63,16 @@ public class ListingService {
         return savedListing;
     }
 
-    public List<ListingResponse> getAllListings() {
-        log.info("Запрос на получение всех объявлений с обогащением данных");
-        List<Listing> listings = listingRepository.findAll();
+    public List<ListingResponse> getAllListings(Long ownerId) {
+        List<Listing> listings;
+
+        if (ownerId != null) {
+            log.info("Запрос на получение объявлений конкретного пользователя с ID: {}", ownerId);
+            listings = listingRepository.findAllByOwnerId(ownerId);
+        } else {
+            log.info("Запрос на получение всех объявлений (Каталог)");
+            listings = listingRepository.findAll();
+        }
 
         return listings.stream()
                 .map(this::enrichListingData)

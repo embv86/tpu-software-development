@@ -44,7 +44,12 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
 
-            // 1. Проверяем, входит ли путь в белый список
+            // 0. ФИКС CORS: Пропускаем предварительные запросы OPTIONS без проверки токена
+            if (request.getMethod() == HttpMethod.OPTIONS) {
+                return chain.filter(exchange);
+            }
+
+            // 1. Проверяем, входит ли путь в белый список авторизации/регистрации
             boolean isOpenEndpoint = openApiEndpoints.stream().anyMatch(path::startsWith);
 
             // 2. Если это GET-запрос к объявлениям, его тоже разрешаем смотреть гостям
@@ -54,7 +59,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return chain.filter(exchange); // Пропускаем дальше без авторизации
             }
 
-            // 3. Для всех остальных запросов (POST, PUT, DELETE) требуем токен
+            // 3. Для всех остальных запросов (POST, PUT, DELETE к профилю, объявлениям, картинкам, чатам) требуем токен
             if (!request.getHeaders().containsKey("Authorization")) {
                 return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
             }
@@ -67,7 +72,6 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             String token = authHeader.substring(7);
 
             try {
-                // Чистый getBytes(StandardCharsets.UTF_8), точно так же как в JwtUtils!
                 SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
                 Claims claims = Jwts.parser()
@@ -76,20 +80,20 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                         .parseSignedClaims(token)
                         .getPayload();
 
-                // 1. Извлекаем роли
+                // Извлекаем роли
                 List<?> rawRoles = claims.get("roles", List.class);
                 List<String> roles = rawRoles != null
                         ? rawRoles.stream().map(Object::toString).toList()
                         : List.of();
 
-                // 2. Извлекаем ID пользователя (В JwtUtils метод .id() записывает id в клейм "jti")
-                String userId = claims.getId(); // Это встроенный метод jjwt для получения клейма "jti"
+                // Извлекаем ID пользователя (из клейма "jti")
+                String userId = claims.getId();
 
                 if (userId == null) {
                     throw new RuntimeException("User ID (jti claim) missing in token");
                 }
 
-                // 3. Пробрасываем заголовки в микросервисы
+                // Пробрасываем заголовки в микросервисы
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", userId)
                         .header("X-User-Roles", String.join(",", roles))
@@ -98,7 +102,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
             } catch (Exception e) {
-                System.out.println(">>> [GATEWAY AUTH ERROR]: " + e.getMessage());
+                System.out.println(">>> [GATEWAY AUTH ERROR] Path: " + path + " | Error: " + e.getMessage());
                 return onError(exchange, "Invalid Token", HttpStatus.FORBIDDEN);
             }
         };
