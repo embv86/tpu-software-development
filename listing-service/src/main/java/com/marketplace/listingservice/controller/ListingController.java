@@ -6,8 +6,11 @@ import com.marketplace.listingservice.entity.Listing;
 import com.marketplace.listingservice.service.ListingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+// Перепроверь импорт, если у тебя используется старая версия Spring Boot (2.x), замени jakarta на javax
+import jakarta.security.auth.message.config.RegistrationListener;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 
@@ -18,6 +21,7 @@ public class ListingController {
 
     private final ListingService listingService;
 
+    // Создать объявление
     @PostMapping
     public ResponseEntity<Listing> createListing(@RequestBody CreateListingRequest request) {
         Long ownerId = getCurrentUserId();
@@ -25,19 +29,19 @@ public class ListingController {
         return ResponseEntity.ok(created);
     }
 
-    // 1. Получить все объявления (Доступно всем, даже без токена)
+    // Получить все объявления (Каталог)
     @GetMapping
-    public ResponseEntity<List<Listing>> getAllListings() {
+    public ResponseEntity<List<ListingResponse>> getAllListings() {
         return ResponseEntity.ok(listingService.getAllListings());
     }
 
-    // 2. Получить объявление по ID (Доступно всем)
+    // Получить конкретное объявление по ID
     @GetMapping("/{id}")
     public ResponseEntity<ListingResponse> getListingById(@PathVariable Long id) {
         return ResponseEntity.ok(listingService.getListingDetails(id));
     }
 
-    // 3. Обновить объявление (Нужен токен)
+    // Обновить объявление
     @PutMapping("/{id}")
     public ResponseEntity<Listing> updateListing(@PathVariable Long id, @RequestBody CreateListingRequest request) {
         Long currentUserId = getCurrentUserId();
@@ -45,15 +49,15 @@ public class ListingController {
         return ResponseEntity.ok(updated);
     }
 
-    // 4. Удалить объявление (Нужен токен)
+    // Удалить объявление
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteListing(@PathVariable Long id) {
         Long currentUserId = getCurrentUserId();
         listingService.deleteListing(id, currentUserId);
-        return ResponseEntity.noContent().build(); // Возвращает 24 No Content при успешном удалении
+        return ResponseEntity.noContent().build();
     }
 
-    // Вынес парсинг ID в отдельный приватный метод, чтобы не дублировать код
+    // Приватный хелпер для извлечения ID юзера из SecurityContext
     private Long getCurrentUserId() {
         String currentUserIdStr = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return Long.parseLong(currentUserIdStr);

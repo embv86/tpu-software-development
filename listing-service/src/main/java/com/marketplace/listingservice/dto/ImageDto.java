@@ -9,11 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserDto {
-    private Long id;
-    private String email;
-    private String firstName;
-    private String lastName;
-    private String city;
-    private String phone;
+public class ImageDto {
+    private String fileId;
+    private String processedUrl;
+    private String rawUrl; // Именно rawUrl, под сборку в билдере сервиса!
 }

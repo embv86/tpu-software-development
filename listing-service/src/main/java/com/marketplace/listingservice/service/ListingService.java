@@ -2,20 +2,25 @@ package com.marketplace.listingservice.service;
 
 import org.springframework.transaction.annotation.Transactional;
 import com.marketplace.listingservice.client.UserClient;
-import com.marketplace.listingservice.config.RabbitMqConfig; // Проверяй маленькую q!
+import com.marketplace.listingservice.config.RabbitMqConfig;
 import com.marketplace.listingservice.dto.CreateListingRequest;
 import com.marketplace.listingservice.dto.ListingImageMessage;
 import com.marketplace.listingservice.dto.ListingResponse;
 import com.marketplace.listingservice.dto.UserDto;
+import com.marketplace.listingservice.dto.ImageDto;
 import com.marketplace.listingservice.entity.Listing;
+import com.marketplace.listingservice.entity.ListingImage;
 import com.marketplace.listingservice.repository.ListingRepository;
+import com.marketplace.listingservice.repository.ListingImageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ import java.util.List;
 public class ListingService {
 
     private final ListingRepository listingRepository;
+    private final ListingImageRepository listingImageRepository; // Подключаем репозиторий картинок
     private final UserClient userClient;
     private final RabbitTemplate rabbitTemplate;
 
@@ -46,7 +52,6 @@ public class ListingService {
                     "CREATE"
             );
 
-            // Используем правильное имя конфига с маленькой q
             rabbitTemplate.convertAndSend(
                     RabbitMqConfig.IMAGE_EXCHANGE,
                     RabbitMqConfig.PROCESS_ROUTING_KEY,
@@ -58,8 +63,19 @@ public class ListingService {
         return savedListing;
     }
 
-    public List<Listing> getAllListings() {
-        return listingRepository.findAll();
+    public List<ListingResponse> getAllListings() {
+        log.info("Запрос на получение всех объявлений с обогащением данных");
+        List<Listing> listings = listingRepository.findAll();
+
+        return listings.stream()
+                .map(this::enrichListingData)
+                .collect(Collectors.toList());
+    }
+
+    public ListingResponse getListingDetails(Long id) {
+        Listing listing = listingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Объявление с id " + id + " не найдено"));
+        return enrichListingData(listing);
     }
 
     public Listing getListingById(Long id) {
@@ -88,7 +104,6 @@ public class ListingService {
                     "UPDATE"
             );
 
-            // Используем правильное имя конфига с маленькой q
             rabbitTemplate.convertAndSend(
                     RabbitMqConfig.IMAGE_EXCHANGE,
                     RabbitMqConfig.PROCESS_ROUTING_KEY,
@@ -111,15 +126,40 @@ public class ListingService {
         listingRepository.delete(listing);
     }
 
-    public ListingResponse getListingDetails(Long id) {
-        Listing listing = listingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Объявление не найдено"));
+    @Transactional
+    public void deleteAllListingsByOwnerId(Long ownerId) {
+        log.info(">>> [LISTING SERVICE] Начинаем удаление всех объявлений для пользователя с ID: {}", ownerId);
+        listingRepository.deleteAllByOwnerId(ownerId);
+        log.info(">>> [LISTING SERVICE] Все объявления пользователя успешно удалены из базы данных.");
+    }
 
+    // Универсальный метод сборки полного ответа (с картинками и продавцом)
+    private ListingResponse enrichListingData(Listing listing) {
+        // 1. Получение данных пользователя через Feign
         UserDto ownerDto = null;
         try {
             ownerDto = userClient.getUserById(listing.getOwnerId());
         } catch (Exception e) {
             log.error("Ошибка вызова user-service через Feign: {}", e.getMessage());
+            ownerDto = UserDto.builder().id(listing.getOwnerId()).email("unknown@tpu.ru").firstName("Пользователь").build();
+        }
+
+        // 2. Чистое чтение картинок из БД без костылей
+        List<ImageDto> images = new ArrayList<>();
+        try {
+            List<ListingImage> dbImages = listingImageRepository.findAllByListingId(listing.getId());
+            // Внутри метода enrichListingData в ListingService.java:
+            images = dbImages.stream()
+                    .map(img -> ImageDto.builder()
+                            .fileId(img.getFileId())
+                            .processedUrl(img.getProcessedUrl())
+                            .rawUrl(img.getRawUrl()) // <-- Должно быть img.getRawUrl()!
+                            .build())
+                    .collect(Collectors.toList());
+
+            log.info("Для лота {} успешно загружено из БД картинок: {}", listing.getId(), images.size());
+        } catch (Exception e) {
+            log.error("Не удалось достать изображения из таблицы для лота {}: {}", listing.getId(), e.getMessage());
         }
 
         return ListingResponse.builder()
@@ -130,13 +170,7 @@ public class ListingService {
                 .status(listing.getStatus())
                 .createdAt(listing.getCreatedAt())
                 .owner(ownerDto)
+                .images(images)
                 .build();
-    }
-
-    @Transactional
-    public void deleteAllListingsByOwnerId(Long ownerId) {
-        log.info(">>> [LISTING SERVICE] Начинаем удаление всех объявлений для пользователя с ID: {}", ownerId);
-        listingRepository.deleteAllByOwnerId(ownerId);
-        log.info(">>> [LISTING SERVICE] Все объявления пользователя успешно удалены из базы данных.");
     }
 }

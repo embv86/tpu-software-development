@@ -138,6 +138,21 @@ services:
       - user-service
       - listing-service
 
+  frontend:
+      build:
+        context: ./frontend
+        dockerfile: Dockerfile
+      container_name: marketplace-frontend
+      ports:
+        - "5173:5173"
+      volumes:
+        - ./frontend:/app
+        - /app/node_modules
+      environment:
+        - VITE_API_URL=http://localhost:8080
+      depends_on:
+        - gateway-service
+
 volumes:
   pgdata_users:
   pgdata_listings:
