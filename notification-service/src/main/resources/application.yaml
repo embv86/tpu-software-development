@@ -1,0 +1,25 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: notification-service
+
+  # Настройки подключения к RabbitMQ
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # Автоматическое подтверждение сообщений при успешной обработке
+        acknowledge-mode: auto
+        # Сколько сообщений за раз поток может взять из очереди
+        prefetch: 1
+
+# Настройка логирования для отслеживания входящих событий
+logging:
+  level:
+    root: INFO
+    com.marketplace.notificationservice: DEBUG

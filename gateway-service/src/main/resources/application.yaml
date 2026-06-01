@@ -61,6 +61,15 @@ spring:
             - Path=/api/v1/chats/**
           # filters:
           #   - JwtAuthenticationFilter
+
+        - id: notification-websocket
+          uri: ws://notification-service:8086
+          predicates:
+            - Path=/ws-notifications/**
+          # Принудительно сохраняем заголовки веб-сокетов
+          filters:
+            - PreserveHostHeader
+
 app:
   jwt:
     secret: 5367566B59703373363941404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373363941404E635266556A586E3272357538782F

@@ -177,6 +177,24 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  notification-service:
+    build:
+      context: .                  # Переключаем на корень проекта
+      dockerfile: Dockerfile      # Используем общий Dockerfile
+      args:
+        - SERVICE_NAME=notification-service
+    container_name: marketplace-notification-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy # Ждем, пока Кролик залогирует ping
+
   frontend:
     build:
       context: ./frontend
