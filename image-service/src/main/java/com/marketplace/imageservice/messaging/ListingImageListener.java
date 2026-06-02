@@ -18,13 +18,11 @@ public class ListingImageListener {
 
     private final ImageRepository imageRepository;
 
-    // Слушаем строго твою очередь из ImageServiceRabbitConfig
     @RabbitListener(queues = "image.process.queue")
     @Transactional
     public void handleListingImageEvent(ListingImageMessage message) {
         log.info(">>> [IMAGE-SERVICE] Получено сообщение из RabbitMQ для объявления ID: {}", message.getListingId());
 
-        // Если это обновление объявления (редактирование) — сначала сбрасываем старые привязки
         if ("UPDATE".equals(message.getActionType())) {
             List<Image> oldImages = imageRepository.findByListingId(message.getListingId());
             for (Image img : oldImages) {
@@ -34,7 +32,6 @@ public class ListingImageListener {
             log.info(">>> [IMAGE-SERVICE] Старые связи для объявления {} успешно сброшены", message.getListingId());
         }
 
-        // Привязываем новые загруженные картинки к объявлению
         if (message.getImageIds() != null && !message.getImageIds().isEmpty()) {
             for (String fileId : message.getImageIds()) {
                 imageRepository.findByFileId(fileId).ifPresentOrElse(

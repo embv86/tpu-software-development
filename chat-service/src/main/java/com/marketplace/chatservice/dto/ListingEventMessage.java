@@ -17,5 +17,5 @@ public class ListingEventMessage implements Serializable {
     private String title;
     private String description;
     private BigDecimal price;
-    private String eventType; // "CREATE" или "UPDATE"
+    private String eventType;
 }

@@ -22,9 +22,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Разрешаем гостям просматривать объявления (все GET запросы)
                         .requestMatchers(HttpMethod.GET, "/api/v1/listings/**").permitAll()
-                        // Все остальные методы (POST, PUT, DELETE) требуют авторизации
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new GatewayHeaderFilter(), UsernamePasswordAuthenticationFilter.class);

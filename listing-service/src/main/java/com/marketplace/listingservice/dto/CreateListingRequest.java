@@ -13,5 +13,5 @@ public class CreateListingRequest {
     private String title;
     private String description;
     private BigDecimal price;
-    private List<String> imageIds; // Сюда Postman пришлет массив fileId, полученных от image-service
+    private List<String> imageIds;
 }

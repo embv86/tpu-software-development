@@ -8,6 +8,5 @@ import java.util.List;
 
 @Repository
 public interface ListingImageRepository extends JpaRepository<ListingImage, String> {
-    // Ищет все картинки, у которых listing_id равен переданному значению
     List<ListingImage> findAllByListingId(Long listingId);
 }

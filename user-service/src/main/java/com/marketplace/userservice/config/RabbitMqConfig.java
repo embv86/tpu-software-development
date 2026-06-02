@@ -18,11 +18,9 @@ public class RabbitMqConfig {
     public static final String USER_DELETED_LISTING_QUEUE = "user.deleted.listing.queue";
     public static final String USER_DELETED_ROUTING_KEY = "user.event.deleted";
 
-    // Бин, который берет на себя автоматическое создание сущностей в Кролике при старте
     @Bean
     public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
         RabbitAdmin admin = new RabbitAdmin(connectionFactory);
-        // Заставляем его инициализироваться немедленно
         admin.initialize();
         return admin;
     }

@@ -1,13 +1,9 @@
 package com.marketplace.listingservice.service;
 
+import com.marketplace.listingservice.dto.*;
 import org.springframework.transaction.annotation.Transactional;
 import com.marketplace.listingservice.client.UserClient;
 import com.marketplace.listingservice.config.RabbitMqConfig;
-import com.marketplace.listingservice.dto.CreateListingRequest;
-import com.marketplace.listingservice.dto.ListingImageMessage;
-import com.marketplace.listingservice.dto.ListingResponse;
-import com.marketplace.listingservice.dto.UserDto;
-import com.marketplace.listingservice.dto.ImageDto;
 import com.marketplace.listingservice.entity.Listing;
 import com.marketplace.listingservice.entity.ListingImage;
 import com.marketplace.listingservice.repository.ListingRepository;
@@ -58,6 +54,24 @@ public class ListingService {
                     message
             );
             log.info(">>> [LISTING-SERVICE] Отправлено сообщение CREATE для картинок объявления ID: {}", savedListing.getId());
+        }
+
+        try {
+            NotificationEvent notification = NotificationEvent.builder()
+                    .userId(ownerId)
+                    .type("LISTING_CREATED")
+                    .title("Уведомление Deala")
+                    .message(String.format("Объявление «%s» успешно создано и опубликовано в каталоге!", savedListing.getTitle()))
+                    .build();
+
+            rabbitTemplate.convertAndSend(
+                    "marketplace.exchange",
+                    "notification.routing.key",
+                    notification
+            );
+            log.info(">>> [LISTING-SERVICE] Отправлено автоматическое уведомление для пользователя ID: {}", ownerId);
+        } catch (Exception e) {
+            log.error(">>> [LISTING-SERVICE] Не удалось отправить уведомление в RabbitMQ: {}", e.getMessage());
         }
 
         return savedListing;
@@ -119,6 +133,20 @@ public class ListingService {
             log.info(">>> [LISTING-SERVICE] Отправлено сообщение UPDATE для картинок объявления ID: {}", updatedListing.getId());
         }
 
+        try {
+            NotificationEvent notification = NotificationEvent.builder()
+                    .userId(currentUserId)
+                    .type("LISTING_UPDATED")
+                    .title("Обновление Deala")
+                    .message(String.format("Изменения в объявлении «%s» успешно сохранены!", updatedListing.getTitle()))
+                    .build();
+
+            rabbitTemplate.convertAndSend("marketplace.exchange", "notification.routing.key", notification);
+            log.info(">>> [LISTING-SERVICE] Отправлено автоматическое уведомление об обновлении лота для пользователя ID: {}", currentUserId);
+        } catch (Exception e) {
+            log.error(">>> [LISTING-SERVICE] Не удалось отправить уведомление в RabbitMQ: {}", e.getMessage());
+        }
+
         return updatedListing;
     }
 
@@ -130,7 +158,23 @@ public class ListingService {
             throw new RuntimeException("У вас нет прав на удаление этого объявления");
         }
 
+        String listingTitle = listing.getTitle();
+
         listingRepository.delete(listing);
+
+        try {
+            NotificationEvent notification = NotificationEvent.builder()
+                    .userId(currentUserId)
+                    .type("LISTING_DELETED")
+                    .title("Удаление на Deala")
+                    .message(String.format("Объявление «%s» было успешно удалено из системы.", listingTitle))
+                    .build();
+
+            rabbitTemplate.convertAndSend("marketplace.exchange", "notification.routing.key", notification);
+            log.info(">>> [LISTING-SERVICE] Отправлено автоматическое уведомление об удалении лота для пользователя ID: {}", currentUserId);
+        } catch (Exception e) {
+            log.error(">>> [LISTING-SERVICE] Не удалось отправить уведомление в RabbitMQ: {}", e.getMessage());
+        }
     }
 
     @Transactional
@@ -140,9 +184,7 @@ public class ListingService {
         log.info(">>> [LISTING SERVICE] Все объявления пользователя успешно удалены из базы данных.");
     }
 
-    // Универсальный метод сборки полного ответа (с картинками и продавцом)
     private ListingResponse enrichListingData(Listing listing) {
-        // 1. Получение данных пользователя через Feign
         UserDto ownerDto = null;
         try {
             ownerDto = userClient.getUserById(listing.getOwnerId());
@@ -151,16 +193,14 @@ public class ListingService {
             ownerDto = UserDto.builder().id(listing.getOwnerId()).email("unknown@tpu.ru").firstName("Пользователь").build();
         }
 
-        // 2. Чистое чтение картинок из БД без костылей
         List<ImageDto> images = new ArrayList<>();
         try {
             List<ListingImage> dbImages = listingImageRepository.findAllByListingId(listing.getId());
-            // Внутри метода enrichListingData в ListingService.java:
             images = dbImages.stream()
                     .map(img -> ImageDto.builder()
                             .fileId(img.getFileId())
                             .processedUrl(img.getProcessedUrl())
-                            .rawUrl(img.getRawUrl()) // <-- Должно быть img.getRawUrl()!
+                            .rawUrl(img.getRawUrl())
                             .build())
                     .collect(Collectors.toList());
 

@@ -11,7 +11,6 @@ public class NotificationServiceApplication {
     public static void main(String[] args) {
         ConfigurableApplicationContext context = SpringApplication.run(NotificationServiceApplication.class, args);
 
-        // Принудительно заставляем RabbitAdmin объявить бины очередей и эксчейнджей в RabbitMQ
         try {
             RabbitAdmin rabbitAdmin = context.getBean(RabbitAdmin.class);
             rabbitAdmin.initialize();

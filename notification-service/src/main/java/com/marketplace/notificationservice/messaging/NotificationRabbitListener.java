@@ -22,7 +22,6 @@ public class NotificationRabbitListener {
             notificationService.sendNotification(event);
         } catch (Exception e) {
             log.error("Ошибка обработки уведомления: {}", e.getMessage());
-            // Тут можно настроить логику Dead Letter Queue (DLQ), если отправка совсем упала
         }
     }
 }

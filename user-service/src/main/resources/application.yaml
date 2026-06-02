@@ -19,7 +19,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate # Liquibase полностью управляет схемой
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -29,7 +29,6 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
-# Кастомные настройки для нашего JWT
 app:
   jwt:
     secret: 5367566B59703373363941404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373363941404E635266556A586E3272357538782F # Сгенерированный base64 секрет

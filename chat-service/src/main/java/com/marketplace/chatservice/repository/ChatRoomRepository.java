@@ -8,9 +8,7 @@ import java.util.Optional;
 public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     Optional<ChatRoom> findByListingIdAndBuyerIdAndSellerId(Long listingId, Long buyerId, Long sellerId);
 
-    // Найти все чаты, где юзер — покупатель
     List<ChatRoom> findAllByBuyerIdOrderByCreatedAtDesc(Long buyerId);
 
-    // Найти все чаты, где юзер — продавец
     List<ChatRoom> findAllBySellerIdOrderByCreatedAtDesc(Long sellerId);
 }

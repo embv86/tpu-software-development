@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ListingImageMessage implements Serializable {
     private Long listingId;
-    private List<String> imageIds; // Список наших fileId картинок
-    private String actionType;     // "CREATE" или "UPDATE"
+    private List<String> imageIds;
+    private String actionType;
 }

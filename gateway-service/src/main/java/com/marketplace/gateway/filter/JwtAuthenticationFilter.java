@@ -25,7 +25,6 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    // Белый список URL, которые шлюз пропускает без проверки токена
     private static final List<String> openApiEndpoints = List.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login"
@@ -44,22 +43,18 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
 
-            // 0. ФИКС CORS: Пропускаем предварительные запросы OPTIONS без проверки токена
             if (request.getMethod() == HttpMethod.OPTIONS) {
                 return chain.filter(exchange);
             }
 
-            // 1. Проверяем, входит ли путь в белый список авторизации/регистрации
             boolean isOpenEndpoint = openApiEndpoints.stream().anyMatch(path::startsWith);
 
-            // 2. Если это GET-запрос к объявлениям, его тоже разрешаем смотреть гостям
             boolean isGetListings = request.getMethod() == HttpMethod.GET && path.startsWith("/api/v1/listings");
 
             if (isOpenEndpoint || isGetListings) {
-                return chain.filter(exchange); // Пропускаем дальше без авторизации
+                return chain.filter(exchange);
             }
 
-            // 3. Для всех остальных запросов (POST, PUT, DELETE к профилю, объявлениям, картинкам, чатам) требуем токен
             if (!request.getHeaders().containsKey("Authorization")) {
                 return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
             }
@@ -80,20 +75,17 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                         .parseSignedClaims(token)
                         .getPayload();
 
-                // Извлекаем роли
                 List<?> rawRoles = claims.get("roles", List.class);
                 List<String> roles = rawRoles != null
                         ? rawRoles.stream().map(Object::toString).toList()
                         : List.of();
 
-                // Извлекаем ID пользователя (из клейма "jti")
                 String userId = claims.getId();
 
                 if (userId == null) {
                     throw new RuntimeException("User ID (jti claim) missing in token");
                 }
 
-                // Пробрасываем заголовки в микросервисы
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", userId)
                         .header("X-User-Roles", String.join(",", roles))

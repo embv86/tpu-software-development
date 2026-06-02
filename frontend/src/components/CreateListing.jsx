@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
 import api from '../api';
 import { Loader2, X } from 'lucide-react';
 
 function CreateListing({ onListingCreated }) {
+  const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -62,8 +64,9 @@ function CreateListing({ onListingCreated }) {
         price: parseFloat(price), 
         imageIds
       });
-      alert("Объявление создано!");
-      onListingCreated();
+      
+      // Плавный переход на каталог без перезапуска сокетов!
+      navigate('/my-listings');
     } catch (err) {
       alert("Ошибка создания: " + err.message);
     }

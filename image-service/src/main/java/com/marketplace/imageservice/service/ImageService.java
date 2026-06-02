@@ -85,9 +85,6 @@ public class ImageService {
         }
     }
 
-    /**
-     * Новый метод для массовой обработки списка файлов (до 10 штук)
-     */
     public List<ImageResponse> processAndUploadMultiple(List<MultipartFile> files) {
         List<ImageResponse> responses = new ArrayList<>();
 
@@ -96,7 +93,6 @@ public class ImageService {
 
             try {
                 String originalFilename = file.getOriginalFilename();
-                // Генерируем чистый UUID как базовый идентификатор файла
                 String uniqueId = UUID.randomUUID().toString();
                 String cleanName = (originalFilename != null) ? originalFilename.replaceAll("\\s+", "_") : "image.jpg";
 
@@ -104,7 +100,6 @@ public class ImageService {
                 String rawFileName = "raw-" + fileId;
                 String processedFileName = "proc-" + fileId;
 
-                // 1. Сохраняем ОРИГИНАЛ в бакет raw-images
                 try (InputStream inputStream = file.getInputStream()) {
                     minioClient.putObject(
                             PutObjectArgs.builder()
@@ -116,7 +111,6 @@ public class ImageService {
                     );
                 }
 
-                // 2. ОБРАБОТКА (Ресайз и сжатие через Thumbnailator)
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 Thumbnails.of(file.getInputStream())
                         .width(targetWidth)
@@ -126,7 +120,6 @@ public class ImageService {
 
                 byte[] processedBytes = outputStream.toByteArray();
 
-                // 3. Сохраняем СЖАТУЮ копию в бакет market-images
                 try (ByteArrayInputStream processedInputStream = new ByteArrayInputStream(processedBytes)) {
                     minioClient.putObject(
                             PutObjectArgs.builder()
@@ -138,21 +131,18 @@ public class ImageService {
                     );
                 }
 
-                // Формируем ссылки
                 String externalEndpoint = minioEndpoint.replace("marketplace-minio", "localhost");
                 String rawUrl = externalEndpoint + "/" + rawBucket + "/" + rawFileName;
                 String processedUrl = externalEndpoint + "/" + processedBucket + "/" + processedFileName;
 
-                // 4. СОХРАНЯЕМ В БД КАРТИНОК (listingId изначально равен null, проставится через RabbitMQ)
                 Image imageEntity = new Image();
-                imageEntity.setFileId(fileId); // Сохраняем базовый fileId для поиска через брокер
+                imageEntity.setFileId(fileId);
                 imageEntity.setRawUrl(rawUrl);
                 imageEntity.setProcessedUrl(processedUrl);
                 imageEntity.setListingId(null);
 
                 imageRepository.save(imageEntity);
 
-                // Добавляем в список ответа
                 responses.add(new ImageResponse(fileId, rawUrl, processedUrl));
                 log.info(">>> [IMAGE-SERVICE] Файл {} успешно обработан, загружен и сохранен в БД", fileId);
 

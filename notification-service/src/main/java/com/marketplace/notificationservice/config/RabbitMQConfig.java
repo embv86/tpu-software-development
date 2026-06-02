@@ -27,7 +27,6 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(notificationQueue).to(marketplaceExchange).with(NOTIFICATION_ROUTING_KEY);
     }
 
-    // Преобразователь для автоматической конвертации JSON строк в Java DTO объекты
     @Bean
     public Jackson2JsonMessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();

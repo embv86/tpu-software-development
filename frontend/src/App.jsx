@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react'; // Добавили useEffect
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css'; // Импорт стандартных стилей
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Catalog from './components/Catalog';
@@ -16,8 +18,8 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(localStorage.getItem('user'));
 
-  // Создаем стейт для хранения ссылки на stomp-клиент, чтобы иметь возможность отключиться при логауте
   const [stompClient, setStompClient] = useState(null);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   const handleLogin = (newToken, username, userId) => {
     localStorage.setItem('token', newToken);
@@ -27,42 +29,96 @@ function App() {
     setUser(username);
   };
 
+  // 1. Добавь этот useRef в самый верх компонента App, рядом с другими useState:
+  const socketRef = React.useRef(null);
+
+  // 2. А сам useEffect перепиши вот так:
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId');
+    const authToken = localStorage.getItem('token');
+    
+    // Переменная-флаг для отслеживания текущего рендера
+    let isCurrentRender = true; 
 
-    if (token && storedUserId) {
-      console.log("Попытка установить чистый WebSocket для пользователя:", storedUserId);
+    if (token && storedUserId && authToken) {
+      // ЕСЛИ СОКЕТ УЖЕ СОЗДАН ИЛИ СОЗДАЕТСЯ — ИГНОРИРУЕМ ПОВТОРНЫЙ ЗАПУСК
+      if (socketRef.current) {
+        console.log("WebSocket уже инициализирован, отмена дублирования.");
+        return;
+      }
+
+      console.log("Попытка установить ОДИН чистый WebSocket для пользователя:", storedUserId);
       
-      // ИСПОЛЬЗУЕМ СТАНДАРТНЫЙ БРАУЗЕРНЫЙ ПРЕТОКОЛ ws:// НАПРЯМУЮ ЧЕРЕЗ ШЛЮЗ
-      // Обрати внимание: теперь мы передаем урл прямо со спецификатором ws://
       const stompClient = Stomp.client('ws://localhost:8080/ws-notifications');
-
-      // Извлекаем токен из localStorage
-      const authToken = localStorage.getItem('token');
+      socketRef.current = stompClient;
 
       stompClient.connect({
-        // Передаем токен авторизации прямо в заголовках STOMP кадра
         'Authorization': `Bearer ${authToken}`
       }, () => {
-        console.log(">>> УСПЕХ! Чистый WebSocket подключен к Deala! <<<");
+        // Если пока шло соединение, компонент успел размонтироваться — закрываем сокет
+        if (!isCurrentRender) {
+          stompClient.disconnect();
+          return;
+        }
+
+        console.log(">>> УСПЕХ! Чистый ОДИНОЧНЫЙ WebSocket подключен к Deala! <<<");
         
-        stompClient.subscribe(`/user/${storedUserId}/queue/notifications`, (message) => {
+        stompClient.subscribe(`/topic/notifications.${storedUserId}`, (message) => {
           const notification = JSON.parse(message.body);
-          console.log("УРА! Сообщение в браузере:", notification);
-          alert(`[${notification.title}]: ${notification.message}`); 
+          console.log("Прилетело сокет-событие:", notification);
+          
+          const isAtChatsPage = window.location.pathname === '/chats';
+
+          // ЕСЛИ ЭТО НОВОЕ СООБЩЕНИЕ ЧАТА
+          if (notification.type === 'NEW_MESSAGE') {
+            if (!isAtChatsPage) {
+              setHasUnreadMessages(true); // Зажигаем кружочек, если мы в каталоге
+            }
+
+            // ГЕНЕРИРУЕМ СОБЫТИЕ ДЛЯ СТРАНИЦЫ ЧАТОВ
+            // Передаем внутренний payload (наш msg объект) наружу
+            const chatEvent = new CustomEvent('live-chat-message', { detail: notification.payload });
+            window.dispatchEvent(chatEvent);
+          }
+
+          // Показываем оранжевый тост (только если мы НЕ на странице чатов, чтобы не спамить плашками при открытой переписке)
+          if (!isAtChatsPage || notification.type !== 'NEW_MESSAGE') {
+            toast(
+              <div>
+                <strong>{notification.title}</strong>
+                <div>{notification.message}</div>
+              </div>,
+              {
+                position: "top-right",
+                autoClose: 5000,
+                className: 'Toastify__toast--orange',
+                icon: false
+              }
+            );
+          }
         });
+        
       }, (err) => {
         console.error("Ошибка чистых WebSockets:", err);
+        if (isCurrentRender) socketRef.current = null;
       });
 
       setStompClient(stompClient);
-
-      return () => {
-        if (stompClient && stompClient.connected) {
-          stompClient.disconnect();
-        }
-      };
     }
+
+    // Очистка при размонтировании или смене токена
+    return () => {
+      isCurrentRender = false;
+      if (socketRef.current) {
+        console.log("Размонтирование: принудительно закрываем WebSocket...");
+        const clientToDisconnect = socketRef.current;
+        socketRef.current = null; // Сразу зануляем ссылку
+        
+        if (clientToDisconnect.connected) {
+          clientToDisconnect.disconnect();
+        }
+      }
+    };
   }, [token]);
 
   const handleLogout = () => {
@@ -77,7 +133,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Header token={token} />
+      <Header token={token} hasUnread={hasUnreadMessages} setHasUnread={setHasUnreadMessages} />
       <main>
         <Routes>
           <Route path="/" element={<Navigate to="/catalog" replace />} />
@@ -86,7 +142,7 @@ function App() {
           
           <Route 
             path="/create" 
-            element={token ? <CreateListing onListingCreated={() => window.location.href = '/catalog'} /> : <Navigate to="/profile" replace />} 
+            element={token ? <CreateListing onListingCreated={() => {}} /> : <Navigate to="/profile" replace />} 
           />
           <Route 
             path="/my-listings" 
@@ -94,7 +150,7 @@ function App() {
           />
           <Route 
             path="/chats" 
-            element={token ? <ChatsPage /> : <Navigate to="/profile" replace />} 
+            element={token ? <ChatsPage stompClient={stompClient} /> : <Navigate to="/profile" replace />} 
           />
           <Route 
             path="/edit/:id" 
@@ -115,6 +171,7 @@ function App() {
           <Route path="*" element={<Navigate to="/catalog" replace />} />
         </Routes>
       </main>
+      <ToastContainer />
     </BrowserRouter>
   );
 }

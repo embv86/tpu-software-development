@@ -11,8 +11,7 @@ import java.util.List;
 public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findAllByChatRoomIdOrderByCreatedAtAsc(Long chatRoomId);
 
-    // ВОТ ЭТОТ МЕТОД ДОБАВЛЯЕМ:
     @Modifying
-    @Transactional // Обязательно для операций изменения/удаления в репозитории
+    @Transactional
     void deleteAllByChatRoomId(Long chatRoomId);
 }

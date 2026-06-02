@@ -15,7 +15,6 @@ public class ListingRequest {
     @Size(max = 10, message = "You can attach a maximum of 10 images")
     private List<String> imageIds;
 
-    // Геттеры и сеттеры
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }

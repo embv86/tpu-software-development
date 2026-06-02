@@ -101,7 +101,7 @@ function EditListingPage() {
 
     try {
       await api.put(`/listings/${id}`, payload);
-      alert("Объявление успешно обновлено!");
+      
       navigate('/my-listings');
     } catch (err) {
       console.error("Ошибка обновления лота:", err);

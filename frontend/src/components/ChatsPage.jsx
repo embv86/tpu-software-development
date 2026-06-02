@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Send, Loader2, MessageSquare, ShoppingBag, Tag, Trash2 } from 'lucide-react';
+import ConfirmationModal from './ConfirmationModal'; // ИМПОРТИРУЕМ НАШУ МОДАЛКУ
 
-function ChatsPage() {
+// Принимаем stompClient из пропсов, которые прокинули из App.jsx
+function ChatsPage({ stompClient }) {
   const location = useLocation();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
@@ -22,6 +24,10 @@ function ChatsPage() {
   const [newMessage, setNewMessage] = useState('');
   const [roomsLoading, setRoomsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+
+  // Стейты для кастомной модалки удаления чата
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState(null);
 
   useEffect(() => {
     fetchAllRooms();
@@ -43,6 +49,67 @@ function ChatsPage() {
       fetchChatHistory(activeChat);
     }
   }, [activeChat]);
+
+  // === ЖЕЛЕЗОБЕТОННЫЙ ПРИЕМ СООБЩЕНИЙ ОНЛАЙН ===
+  useEffect(() => {
+    const handleLiveMessage = (event) => {
+      const receivedMsg = event.detail; // Получаем чистый объект сообщения Message из Java
+      if (!receivedMsg || !activeChat) return;
+
+      // Проверяем, что пришедшее сообщение принадлежит именно ЭТОЙ открытой комнате чата
+      const isCurrentRoom = rooms[activeTab]?.some(room => 
+        room.id === receivedMsg.chatRoomId && 
+        room.listingId === activeChat.listingId
+      ) || (activeChat.buyerId === receivedMsg.senderId || activeChat.sellerId === receivedMsg.senderId);
+
+      if (isCurrentRoom) {
+        console.log("Добавляем пришедшее по сети сообщение в чат:", receivedMsg);
+        setMessages((prev) => {
+          if (prev.some(m => m.id === receivedMsg.id)) return prev;
+          return [...prev, receivedMsg];
+        });
+      }
+      
+      // Обновляем список комнат слева, чтобы поднять активный чат наверх или обновить превью
+      fetchAllRooms();
+    };
+
+    // Слушаем глобальное событие окна браузера
+    window.addEventListener('live-chat-message', handleLiveMessage);
+    
+    return () => {
+      window.removeEventListener('live-chat-message', handleLiveMessage);
+    };
+  }, [activeChat, activeTab, rooms]);
+
+  // === ЖЕЛЕЗОБЕТОННАЯ РЕАЛ-ТАЙМ ПОДПИСКА НА АКТИВНЫЙ ДИАЛОГ ===
+  useEffect(() => {
+    // Проверяем, что сокет активен и выбран конкретный чат
+    if (stompClient && stompClient.connected && activeChat) {
+      
+      // Формируем уникальное имя топика для этой конкретной сделки/комнаты
+      const topicUrl = `/topic/chat.${activeChat.listingId}.${activeChat.buyerId}.${activeChat.sellerId}`;
+      console.log("Страница чатов подписывается на живой топик:", topicUrl);
+
+      const subscription = stompClient.subscribe(topicUrl, (frame) => {
+        const receivedMsg = JSON.parse(frame.body);
+        console.log("В открытый диалог прилетело сообщение онлайн:", receivedMsg);
+
+        // Добавляем сообщение в список сообщений на экране
+        setMessages((prev) => {
+          // Защита: если сообщение с таким ID уже отрисовано, игнорируем дубликат
+          if (prev.some(m => m.id === receivedMsg.id)) return prev;
+          return [...prev, receivedMsg];
+        });
+      });
+
+      // При переключении чата или уходе со страницы — отписываемся от старого топика
+      return () => {
+        console.log("Отписка от топика:", topicUrl);
+        subscription.unsubscribe();
+      };
+    }
+  }, [stompClient, activeChat]);
 
   // Скролл вниз при отправке/получении сообщений
   useEffect(() => {
@@ -91,7 +158,13 @@ function ChatsPage() {
 
     try {
       const response = await api.post('/chats/send', payload);
-      setMessages((prev) => [...prev, response.data]);
+      
+      // Оптимистично добавляем свое сообщение, если сокет вдруг задержится
+      setMessages((prev) => {
+        if (prev.some(m => m.id === response.data.id)) return prev;
+        return [...prev, response.data];
+      });
+      
       setNewMessage('');
       fetchAllRooms();
     } catch (err) {
@@ -99,20 +172,27 @@ function ChatsPage() {
     }
   };
 
-  const handleDeleteChat = async (e, room) => {
+  // Открытие нашей красивой модалки вместо window.confirm
+  const openDeleteModal = (e, room) => {
     e.stopPropagation();
-    if (!window.confirm("Удалить этот чат? Вся история переписки будет стёрта.")) return;
+    setRoomToDelete(room);
+    setIsModalOpen(true);
+  };
+
+  // Подтверждение удаления чата внутри кастомной модалки
+  const handleConfirmDeleteChat = async () => {
+    if (!roomToDelete) return;
 
     try {
-      await api.delete(`/chats/${room.id}`); 
+      await api.delete(`/chats/${roomToDelete.id}`); 
       setRooms((prevRooms) => ({
         ...prevRooms,
-        [activeTab]: prevRooms[activeTab].filter(item => item.id !== room.id)
+        [activeTab]: prevRooms[activeTab].filter(item => item.id !== roomToDelete.id)
       }));
       
-      const isActive = activeChat?.listingId === room.listingId && 
-                       activeChat?.buyerId === room.buyerId && 
-                       activeChat?.sellerId === room.sellerId;
+      const isActive = activeChat?.listingId === roomToDelete.listingId && 
+                       activeChat?.buyerId === roomToDelete.buyerId && 
+                       activeChat?.sellerId === roomToDelete.sellerId;
                        
       if (isActive) {
         setActiveChat(null);
@@ -120,6 +200,9 @@ function ChatsPage() {
       }
     } catch (err) {
       alert("Не удалось удалить чат: " + err.message);
+    } finally {
+      setIsModalOpen(false);
+      setRoomToDelete(null);
     }
   };
 
@@ -132,7 +215,7 @@ function ChatsPage() {
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-element)' }}>
           <button 
             onClick={() => setActiveTab('buying')}
-            style={{ flex: 1, padding: '15px', background: activeTab === 'buying' ? 'var(--bg-surface)' : 'none', border: 'none', color: activeTab === 'buying' ? 'var(--primary)' : 'var(--text-muted)', Letters: '1px', fontWeight: '600', cursor: 'pointer', borderBottom: activeTab === 'buying' ? '2px solid var(--primary)' : 'none' }}
+            style={{ flex: 1, padding: '15px', background: activeTab === 'buying' ? 'var(--bg-surface)' : 'none', border: 'none', color: activeTab === 'buying' ? 'var(--primary)' : 'var(--text-muted)', fontWeight: '600', cursor: 'pointer', borderBottom: activeTab === 'buying' ? '2px solid var(--primary)' : 'none' }}
           >
             Я покупаю
           </button>
@@ -180,10 +263,12 @@ function ChatsPage() {
                     </p>
                   </div>
 
+                  {/* Переключили хендлер на openDeleteModal */}
                   <button
-                    onClick={(e) => handleDeleteChat(e, room)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onStringToColor={(e) => e.currentTarget.style.color = 'var(--danger)'}
+                    onClick={(e) => openDeleteModal(e, room)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--danger)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
                     title="Удалить чат"
                   >
                     <Trash2 size={15} />
@@ -272,6 +357,15 @@ function ChatsPage() {
           </div>
         )}
       </div>
+
+      {/* НАША СТИЛЬНАЯ ОРАНЖЕВАЯ МОДАЛКА УДАЛЕНИЯ ЧАТА */}
+      <ConfirmationModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmDeleteChat}
+        title="Удалить переписку?"
+        message="Вы уверены, что хотите навсегда удалить этот чат? Вся история сообщений исчезнет у обоих участников."
+      />
     </div>
   );
 }

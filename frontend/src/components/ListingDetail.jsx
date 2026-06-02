@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { ImageIcon, Loader2, ArrowLeft, Mail, User, Pencil, Trash2, Share2 } from 'lucide-react';
+import ConfirmationModal from './ConfirmationModal'; // ИМПОРТ МОДАЛКИ
 
 function ListingDetail() {
   const { id } = useParams();
@@ -9,6 +10,9 @@ function ListingDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activePhotoUrl, setActivePhotoUrl] = useState(null);
+
+  // --- СТЕЙТ ДЛЯ МОДАЛКИ ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const currentUserId = Number(localStorage.getItem('userId'));
   const isOwner = data?.owner?.id === currentUserId;
@@ -31,7 +35,7 @@ function ListingDetail() {
       }
     } catch (err) {
       console.error("Ошибка загрузки деталей лота:", err);
-      alert("Не удалось加载 детальную информацию: " + err.message);
+      alert("Не удалось загрузить детальную информацию: " + err.message);
       navigate('/catalog');
     } finally {
       setLoading(false);
@@ -50,15 +54,17 @@ function ListingDetail() {
       .catch((err) => console.error("Не удалось скопировать ссылку:", err));
   };
 
-  const handleDeleteListing = async () => {
-    if (!window.confirm("Вы уверены, что хотите навсегда удалить это объявление?")) return;
+  // Срабатывает, когда пользователь нажимает "Удалить" внутри кастомной модалки
+  const handleConfirmDelete = async () => {
     try {
       await api.delete(`/listings/${data.id}`);
-      alert("Объявление успешно удалено");
-      navigate('/my-listings');
+      // Использовали SPA-переход navigate вместо перезагрузок страницы!
+      navigate('/my-listings'); 
     } catch (err) {
       console.error("Не удалось удалить объявление:", err);
       alert("Ошибка при удалении: " + err.message);
+    } finally {
+      setIsModalOpen(false);
     }
   };
 
@@ -156,15 +162,12 @@ function ListingDetail() {
               </div>
             </div>
 
-            {/* ДИНАМИЧЕСКИЙ ВЫВОД КНОПОК */}
             {!isOwner ? (
               <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                {/* Кнопка чата для покупателя */}
                 <button className="message-btn" onClick={handleRedirectToChat} style={{ flex: 1 }}>
                   <Mail size={16} /> Написать продавцу
                 </button>
                 
-                {/* Кнопка поделиться для покупателя (Светлая тема) */}
                 <button 
                   onClick={handleShareListing}
                   style={{ 
@@ -199,7 +202,6 @@ function ListingDetail() {
                     Это ваше объявление
                   </p>
                   
-                  {/* Кнопка поделиться для продавца */}
                   <button 
                     onClick={handleShareListing}
                     style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: '500', transition: 'color 0.2s' }}
@@ -211,7 +213,6 @@ function ListingDetail() {
                   </button>
                 </div>
                 
-                {/* Блок управления лотом для владельца */}
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button 
                     onClick={() => navigate(`/edit/${data.id}`)} 
@@ -227,8 +228,9 @@ function ListingDetail() {
                   >
                     <Pencil size={15} /> Изменить
                   </button>
+                  {/* ЗАМЕНИЛИ НА ОТКРЫТИЕ НАШЕЙ МОДАЛКИ */}
                   <button 
-                    onClick={handleDeleteListing} 
+                    onClick={() => setIsModalOpen(true)} 
                     style={{ flex: 1, padding: '10px', background: 'var(--bg-surface)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '600', transition: 'all 0.2s' }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = 'var(--danger)';
@@ -247,6 +249,15 @@ function ListingDetail() {
           </div>
         </div>
       </div>
+
+      {/* ПОДКЛЮЧАЕМ КОМПОНЕНТ МОДАЛКИ */}
+      <ConfirmationModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Удалить объявление?"
+        message={`Вы уверены, что хотите навсегда удалить «${data.title}» из системы Deala?`}
+      />
     </div>
   );
 }

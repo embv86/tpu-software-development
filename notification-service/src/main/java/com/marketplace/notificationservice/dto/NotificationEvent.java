@@ -13,9 +13,9 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 public class NotificationEvent implements Serializable {
-    private Long userId;          // Кому предназначено уведомление
-    private String type;          // Тип: NEW_MESSAGE, LISTING_APPROVED, NEW_PRICE
-    private String title;         // Заголовок уведомления
-    private String message;       // Текст уведомления
-    private Map<String, Object> payload; // Дополнительные данные (например, listingId или chatId)
+    private Long userId;
+    private String type;
+    private String title;
+    private String message;
+    private Map<String, Object> payload;
 }

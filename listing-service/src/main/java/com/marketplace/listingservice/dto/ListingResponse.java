@@ -19,6 +19,6 @@ public class ListingResponse {
     private BigDecimal price;
     private String status;
     private LocalDateTime createdAt;
-    private UserDto owner; // Данные продавца из user-service
-    private List<ImageDto> images; // Массив картинок, который мы только что создали!
+    private UserDto owner;
+    private List<ImageDto> images;
 }

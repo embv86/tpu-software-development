@@ -34,7 +34,6 @@ public class ImageServiceRabbitConfig {
         return BindingBuilder.bind(processImagesQueue).to(imageExchange).with(PROCESS_ROUTING_KEY);
     }
 
-    // Очередь для уведомлений о готовности изображений (другие сервисы будут её слушать)
     @Bean
     public Queue imagesReadyQueue() {
         return new Queue(IMAGES_READY_QUEUE, true);
@@ -62,7 +61,6 @@ public class ImageServiceRabbitConfig {
         return cf;
     }
 
-    // Бин для работы с MinIO
     @Value("${minio.endpoint}") private String minioEndpoint;
     @Value("${minio.accessKey}") private String minioAccessKey;
     @Value("${minio.secretKey}") private String minioSecretKey;

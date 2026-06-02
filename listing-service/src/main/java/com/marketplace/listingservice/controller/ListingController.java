@@ -21,7 +21,6 @@ public class ListingController {
 
     private final ListingService listingService;
 
-    // Создать объявление
     @PostMapping
     public ResponseEntity<Listing> createListing(@RequestBody CreateListingRequest request) {
         Long ownerId = getCurrentUserId();
@@ -29,7 +28,6 @@ public class ListingController {
         return ResponseEntity.ok(created);
     }
 
-    // Получить все объявления (с поддержкой фильтрации по владельцу)
     @GetMapping
     public ResponseEntity<List<ListingResponse>> getAllListings(
             @RequestParam(value = "ownerId", required = false) Long ownerId) {
@@ -38,13 +36,11 @@ public class ListingController {
         return ResponseEntity.ok(listings);
     }
 
-    // Получить конкретное объявление по ID
     @GetMapping("/{id}")
     public ResponseEntity<ListingResponse> getListingById(@PathVariable Long id) {
         return ResponseEntity.ok(listingService.getListingDetails(id));
     }
 
-    // Обновить объявление
     @PutMapping("/{id}")
     public ResponseEntity<Listing> updateListing(@PathVariable Long id, @RequestBody CreateListingRequest request) {
         Long currentUserId = getCurrentUserId();
@@ -52,7 +48,6 @@ public class ListingController {
         return ResponseEntity.ok(updated);
     }
 
-    // Удалить объявление
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteListing(@PathVariable Long id) {
         Long currentUserId = getCurrentUserId();
@@ -60,7 +55,6 @@ public class ListingController {
         return ResponseEntity.noContent().build();
     }
 
-    // Приватный хелпер для извлечения ID юзера из SecurityContext
     private Long getCurrentUserId() {
         String currentUserIdStr = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return Long.parseLong(currentUserIdStr);

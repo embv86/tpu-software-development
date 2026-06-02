@@ -11,7 +11,6 @@ public class UserServiceApplication {
     public static void main(String[] args) {
         ConfigurableApplicationContext context = SpringApplication.run(UserServiceApplication.class, args);
 
-        // Принудительно достаем бин администратора Кролика, чтобы он создал очереди прямо сейчас
         try {
             RabbitAdmin rabbitAdmin = context.getBean(RabbitAdmin.class);
             rabbitAdmin.initialize();

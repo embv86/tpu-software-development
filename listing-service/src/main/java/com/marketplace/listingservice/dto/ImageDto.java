@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 public class ImageDto {
     private String fileId;
     private String processedUrl;
-    private String rawUrl; // Именно rawUrl, под сборку в билдере сервиса!
+    private String rawUrl;
 }

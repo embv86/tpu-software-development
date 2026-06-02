@@ -11,22 +11,19 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
 
-    // Встроенный инструмент Spring для отправки сообщений через WebSocket
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     public void sendNotification(NotificationEvent event) {
         log.info(">>> [WEBSOCKET] Пересылка уведомления для пользователя ID: {}", event.getUserId());
         try {
-            // Шлем строго по ID сессии
-            messagingTemplate.convertAndSendToUser(
-                    String.valueOf(event.getUserId()),
-                    "/queue/notifications",
-                    event
-            );
-            log.info(">>> [WEBSOCKET] Уведомление успешно отправлено в сокет-канал пользователя {}! <<<", event.getUserId());
+            String destination = "/topic/notifications." + event.getUserId();
+
+            messagingTemplate.convertAndSend(destination, event);
+
+            log.info(">>> [WEBSOCKET] Уведомление успешно отправлено в топик: {} <<<", destination);
         } catch (Exception e) {
-            log.error(">>> [WEBSOCKET] Ошибка отправки: {}", e.getMessage());
+            log.error(">>> [WEBSOCKET] Ошибка отправки через WebSocket: {}", e.getMessage());
         }
     }
 }

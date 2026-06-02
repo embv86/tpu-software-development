@@ -24,16 +24,13 @@ public class GatewayHeaderFilter extends OncePerRequestFilter {
         String rolesHeader = request.getHeader("X-User-Roles");
 
         if (userId != null) {
-            // Превращаем строку ролей "ROLE_USER,ROLE_ADMIN" в список Authority для Spring Security
             List<SimpleGrantedAuthority> authorities = Arrays.stream(rolesHeader.split(","))
                     .map(SimpleGrantedAuthority::new)
                     .collect(Collectors.toList());
 
-            // Создаем объект аутентификации (в качестве principal передаем userId)
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, authorities);
 
-            // Сохраняем в контекст Spring Security
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 

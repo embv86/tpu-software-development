@@ -23,6 +23,17 @@
   --danger: #f75a68;
 }
 
+/* Кастомный класс для оранжевого уведомления Deala */
+.Toastify__toast--orange {
+  background: #ff7742 !important;
+  color: #ffffff !important;
+}
+
+/* Красим бегущую полоску таймера в чуть более темный или светлый оттенок для красоты */
+.Toastify__toast--orange .Toastify__progress-bar {
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
 body {
   margin: 0;
   background-color: var(--bg-body);

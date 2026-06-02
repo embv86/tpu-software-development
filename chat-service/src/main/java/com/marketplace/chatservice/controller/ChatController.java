@@ -46,12 +46,11 @@ public class ChatController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteChat(@PathVariable Long id) {
-        chatService.deleteChat(id); // Вызывает метод, который мы только что написали выше
-        return ResponseEntity.noContent().build(); // Возвращает статус 204 No Content (успешно)
+        chatService.deleteChat(id);
+        return ResponseEntity.noContent().build();
     }
 }
 
-// Простой DTO класс для ответа (можно кинуть в этот же файл в самый низ)
 @Data
 @AllArgsConstructor
 class UserChatsResponse {

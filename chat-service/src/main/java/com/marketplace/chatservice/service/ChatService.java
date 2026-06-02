@@ -2,22 +2,30 @@ package com.marketplace.chatservice.service;
 
 import com.marketplace.chatservice.entity.ChatRoom;
 import com.marketplace.chatservice.entity.Message;
+import com.marketplace.chatservice.dto.NotificationEvent;
 import com.marketplace.chatservice.repository.ChatRoomRepository;
 import com.marketplace.chatservice.repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.messaging.simp.SimpMessagingTemplate; // ДОБАВИЛИ ИМПОРТ ДЛЯ СОКЕТОВ СТАНДАРТА SPRING
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final MessageRepository messageRepository;
+    private final RabbitTemplate rabbitTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public Message sendMessage(Long listingId, Long buyerId, Long sellerId, Long senderId, String text) {
-        // Ищем комнату или создаем новую, если её нет
         ChatRoom room = chatRoomRepository.findByListingIdAndBuyerIdAndSellerId(listingId, buyerId, sellerId)
                 .orElseGet(() -> {
                     ChatRoom newRoom = ChatRoom.builder()
@@ -29,7 +37,6 @@ public class ChatService {
                     return chatRoomRepository.save(newRoom);
                 });
 
-        // Получатель — это тот, кто НЕ является отправителем
         Long recipientId = senderId.equals(buyerId) ? sellerId : buyerId;
 
         Message message = Message.builder()
@@ -40,7 +47,28 @@ public class ChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return messageRepository.save(message);
+        Message savedMessage = messageRepository.save(message);
+
+        try {
+            NotificationEvent notification = NotificationEvent.builder()
+                    .userId(recipientId)
+                    .type("NEW_MESSAGE")
+                    .title("Новое сообщение")
+                    .message(text.length() > 40 ? text.substring(0, 37) + "..." : text)
+                    .payload(savedMessage)
+                    .build();
+
+            rabbitTemplate.convertAndSend(
+                    "marketplace.exchange",
+                    "notification.routing.key",
+                    notification
+            );
+            log.info(">>> [CHAT-SERVICE] Сообщение и триггер отправлены в RabbitMQ для пользователя ID: {}", recipientId);
+        } catch (Exception e) {
+            log.error(">>> [CHAT-SERVICE] Не удалось отправить сообщение в RabbitMQ: {}", e.getMessage());
+        }
+
+        return savedMessage;
     }
 
     public List<Message> getChatHistory(Long listingId, Long buyerId, Long sellerId) {
@@ -48,8 +76,6 @@ public class ChatService {
                 .orElseThrow(() -> new RuntimeException("Чат для данного объявления еще не создан"));
         return messageRepository.findAllByChatRoomIdOrderByCreatedAtAsc(room.getId());
     }
-
-    // === ВОТ ЭТИ ДВА МЕТОДА Я ЗАБЫЛ ДОБАВИТЬ ===
 
     public List<ChatRoom> getRoomsByBuyer(Long buyerId) {
         return chatRoomRepository.findAllByBuyerIdOrderByCreatedAtDesc(buyerId);
@@ -59,20 +85,15 @@ public class ChatService {
         return chatRoomRepository.findAllBySellerIdOrderByCreatedAtDesc(sellerId);
     }
 
-    // Добавь этот метод в самый низ твоего com.marketplace.chatservice.service.ChatService:
-
-    @org.springframework.transaction.annotation.Transactional // Гарантирует, что всё удалится вместе
+    @Transactional
     public void deleteChat(Long roomId) {
-        // 1. Проверяем, существует ли вообще такой чат
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Чат с ID " + roomId + " не найден"));
 
-        // 2. Удаляем все сообщения, привязанные к этому чату
         messageRepository.deleteAllByChatRoomId(room.getId());
-        System.out.println(">>> [CHAT-SERVICE] Сообщения для чата #" + roomId + " удалены.");
+        log.info(">>> [CHAT-SERVICE] Сообщения для чата #{} удалены.", roomId);
 
-        // 3. Удаляем саму комнату чата
         chatRoomRepository.delete(room);
-        System.out.println(">>> [CHAT-SERVICE] Комната чата #" + roomId + " полностью удалена.");
+        log.info(">>> [CHAT-SERVICE] Комната чата #{} полностью удалена.", roomId);
     }
 }

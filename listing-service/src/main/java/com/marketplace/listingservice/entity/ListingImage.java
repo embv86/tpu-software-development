@@ -27,6 +27,6 @@ public class ListingImage {
     @Column(name = "processed_url")
     private String processedUrl;
 
-    @Column(name = "raw_url") // <-- Хитрый Hibernate искал тут "url", теперь мы жестко задали "raw_url"
+    @Column(name = "raw_url")
     private String rawUrl;
 }
