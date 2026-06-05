@@ -16,6 +16,7 @@ function CreateListing({ onListingCreated }) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
 
+    // Проверка лимита на основе актуального стейта
     if (imageIds.length + files.length > 10) {
       alert(`Вы не можете загрузить больше 10 фотографий. Уже загружено: ${imageIds.length}`);
       e.target.value = "";
@@ -31,11 +32,15 @@ function CreateListing({ onListingCreated }) {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      const ids = response.data.map(img => img.fileId);
-      const urls = response.data.map(img => img.processedUrl || img.url);
+      const ids = response.data.map(img => img.fileId || img.id);
+      const urls = response.data.map(img => {
+        const url = img.processedUrl || img.url;
+        return url ? url.replace('http://minio:9000', 'http://localhost:9000') : null;
+      });
       
-      setImageIds([...imageIds, ...ids]);
-      setPreviewUrls([...previewUrls, ...urls]);
+      // ФИКС: Используем функциональное обновление стейта
+      setImageIds(prev => [...prev, ...ids]);
+      setPreviewUrls(prev => [...prev, ...urls]);
     } catch (err) {
       alert("Не удалось загрузить изображения: " + err.message);
     } finally {
@@ -45,8 +50,9 @@ function CreateListing({ onListingCreated }) {
   };
 
   const handleRemoveImage = (indexToRemove) => {
-    setImageIds(imageIds.filter((_, idx) => idx !== indexToRemove));
-    setPreviewUrls(previewUrls.filter((_, idx) => idx !== indexToRemove));
+    // ФИКС: Фильтруем через prev, чтобы исключить рассинхрон
+    setImageIds(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    setPreviewUrls(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleCreateListing = async (e) => {
@@ -65,7 +71,7 @@ function CreateListing({ onListingCreated }) {
         imageIds
       });
       
-      // Плавный переход на каталог без перезапуска сокетов!
+      if (onListingCreated) onListingCreated();
       navigate('/my-listings');
     } catch (err) {
       alert("Ошибка создания: " + err.message);
@@ -111,15 +117,21 @@ function CreateListing({ onListingCreated }) {
 
         <label className="label">Фотографии товара (от 1 до 10 штук) *</label>
         <div className="upload-box">
-          <input type="file" multiple accept="image/*" onChange={handleImageUpload} disabled={uploadingImages || imageIds.length >= 10} />
+          <input 
+            type="file" 
+            multiple 
+            accept="image/*" 
+            onChange={handleImageUpload} 
+            disabled={uploadingImages || imageIds.length >= 10} 
+          />
           {uploadingImages && <span style={{marginLeft: '10px'}}><Loader2 style={{animation: 'spin 1s linear infinite'}} size={14} /> Загрузка...</span>}
         </div>
 
         {previewUrls.length > 0 && (
-          <div className="preview-grid">
+          <div className="preview-grid" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '15px' }}>
             {previewUrls.map((url, index) => (
               <div key={index} style={{ position: 'relative', width: '80px', height: '80px' }}>
-                <img src={url} alt="Превью лота" className="preview-img" style={{ width: '100%', height: '100%' }} />
+                <img src={url} alt="Превью лота" className="preview-img" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '6px' }} />
                 <button 
                   type="button"
                   onClick={() => handleRemoveImage(index)}
@@ -132,7 +144,7 @@ function CreateListing({ onListingCreated }) {
           </div>
         )}
 
-        <button type="submit" className="submit-btn">Опубликовать</button>
+        <button type="submit" className="submit-btn" style={{ marginTop: '20px' }}>Опубликовать</button>
       </form>
     </div>
   );

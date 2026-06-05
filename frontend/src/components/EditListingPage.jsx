@@ -33,7 +33,10 @@ function EditListingPage() {
       
       if (item.images && Array.isArray(item.images)) {
         const savedIds = item.images.map(img => img.fileId || img.id);
-        const savedUrls = item.images.map(img => img.processedUrl || img.rawUrl || img.url);
+        const savedUrls = item.images.map(img => {
+          const url = img.processedUrl || img.rawUrl || img.url;
+          return url ? url.replace('http://minio:9000', 'http://localhost:9000') : null;
+        });
         setImageIds(savedIds);
         setPreviewUrls(savedUrls);
       }
@@ -66,7 +69,10 @@ function EditListingPage() {
       });
       
       const newIds = response.data.map(img => img.fileId);
-      const newUrls = response.data.map(img => img.processedUrl || img.url);
+      const newUrls = response.data.map(img => {
+        const url = img.processedUrl || img.url;
+        return url ? url.replace('http://minio:9000', 'http://localhost:9000') : null;
+      });
       
       setImageIds([...imageIds, ...newIds]);
       setPreviewUrls([...previewUrls, ...newUrls]);
