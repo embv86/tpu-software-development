@@ -1,21 +1,21 @@
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
 
 spring:
   application:
     name: user-service
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/marketplace_users_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5435/marketplace_users_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   rabbitmq:
-    host: marketplace-rabbitmq
-    port: 5672
-    username: guest
-    password: guest
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
   jpa:
     hibernate:
@@ -31,5 +31,5 @@ spring:
 
 app:
   jwt:
-    secret: 5367566B59703373363941404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373363941404E635266556A586E3272357538782F # Сгенерированный base64 секрет
-    expiration-ms: 86400000
+    secret: ${JWT_SECRET:5367566B59703373363941404E635266556A586E3272357538782F413F4428472B4B6250645367566B59703373363941404E635266556A586E3272357538782F}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}

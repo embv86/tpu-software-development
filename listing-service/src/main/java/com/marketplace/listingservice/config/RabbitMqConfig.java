@@ -1,5 +1,8 @@
 package com.marketplace.listingservice.config;
 
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -18,8 +21,25 @@ public class RabbitMqConfig {
     public static final String NOTIFICATION_ROUTING_KEY = "notification.routing.key";
 
     @Bean
+    public Queue userDeletedListingQueue() {
+        return new Queue(USER_DELETED_LISTING_QUEUE, true); // true означает durable (очередь выдержит перезапуск брокера)
+    }
+
+    @Bean
+    public TopicExchange marketplaceExchange() {
+        return new TopicExchange(MARKETPLACE_EXCHANGE);
+    }
+
+    @Bean
     public TopicExchange imageExchange() {
         return new TopicExchange(IMAGE_EXCHANGE);
+    }
+
+    @Bean
+    public Binding bindingUserDeleted(Queue userDeletedListingQueue, TopicExchange marketplaceExchange) {
+        return BindingBuilder.bind(userDeletedListingQueue)
+                .to(marketplaceExchange)
+                .with("user.deleted.#"); // пример ключа маршрутизации
     }
 
     @Bean

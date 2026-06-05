@@ -23,20 +23,20 @@ function Catalog() {
     }
   };
 
+  // ФИКС MINIO: Заменяем внутренний адрес докера на localhost
   const getImageUrl = (item) => {
     if (!item.images || item.images.length === 0) return null;
     const img = item.images[0];
-    return img.processedUrl || img.rawUrl;
+    const rawUrl = img.processedUrl || img.rawUrl;
+    return rawUrl ? rawUrl.replace('http://minio:9000', 'http://localhost:9000') : null;
   };
 
   if (loading) return <div className="center"><Loader2 style={{animation: 'spin 1s linear infinite'}} /> Загрузка...</div>;
 
   return (
-    // Ограничиваем общую ширину каталога и центруем его на экране
     <div style={{ maxWidth: '1250px', margin: '30px auto', padding: '0 20px' }}>
       <h2 className="title" style={{ marginBottom: '20px' }}>Каталог</h2>
       
-      {/* СЕТКА С ЖЕСТКОЙ КЛЕЙКОЙ НА 5 СТОЛБЦОВ */}
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', 

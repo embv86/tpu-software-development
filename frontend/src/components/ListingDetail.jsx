@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { ImageIcon, Loader2, ArrowLeft, Mail, User, Pencil, Trash2, Share2 } from 'lucide-react';
-import ConfirmationModal from './ConfirmationModal'; // ИМПОРТ МОДАЛКИ
+import ConfirmationModal from './ConfirmationModal'; 
 
 function ListingDetail() {
   const { id } = useParams();
@@ -11,11 +11,17 @@ function ListingDetail() {
   const [loading, setLoading] = useState(true);
   const [activePhotoUrl, setActivePhotoUrl] = useState(null);
 
-  // --- СТЕЙТ ДЛЯ МОДАЛКИ ---
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const currentUserId = Number(localStorage.getItem('userId'));
   const isOwner = data?.owner?.id === currentUserId;
+
+  // --- ФИКС MINIO: Функция для замены внутреннего адреса Docker на внешний ---
+  const getValidImageUrl = (url) => {
+    if (!url) return null;
+    return url.replace('http://minio:9000', 'http://localhost:9000');
+  };
+  // -------------------------------------------------------------------------
 
   useEffect(() => {
     fetchDetails();
@@ -31,7 +37,8 @@ function ListingDetail() {
       if (listingData && Array.isArray(listingData.images) && listingData.images.length > 0) {
         const firstImg = listingData.images[0];
         const coverUrl = firstImg.processedUrl || firstImg.rawUrl || firstImg.url || null;
-        setActivePhotoUrl(coverUrl);
+        // ФИКС MINIO: Пропускаем главную картинку через фильтр
+        setActivePhotoUrl(getValidImageUrl(coverUrl));
       }
     } catch (err) {
       console.error("Ошибка загрузки деталей лота:", err);
@@ -54,11 +61,9 @@ function ListingDetail() {
       .catch((err) => console.error("Не удалось скопировать ссылку:", err));
   };
 
-  // Срабатывает, когда пользователь нажимает "Удалить" внутри кастомной модалки
   const handleConfirmDelete = async () => {
     try {
       await api.delete(`/listings/${data.id}`);
-      // Использовали SPA-переход navigate вместо перезагрузок страницы!
       navigate('/my-listings'); 
     } catch (err) {
       console.error("Не удалось удалить объявление:", err);
@@ -105,7 +110,10 @@ function ListingDetail() {
               </p>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 {data.images.map((img, i) => {
-                  const imgUrl = img.processedUrl || img.rawUrl || img.url;
+                  const rawUrl = img.processedUrl || img.rawUrl || img.url;
+                  // ФИКС MINIO: Пропускаем миниатюры через фильтр
+                  const imgUrl = getValidImageUrl(rawUrl);
+                  
                   if (!imgUrl) return null;
 
                   const isSelected = activePhotoUrl === imgUrl;
@@ -228,7 +236,6 @@ function ListingDetail() {
                   >
                     <Pencil size={15} /> Изменить
                   </button>
-                  {/* ЗАМЕНИЛИ НА ОТКРЫТИЕ НАШЕЙ МОДАЛКИ */}
                   <button 
                     onClick={() => setIsModalOpen(true)} 
                     style={{ flex: 1, padding: '10px', background: 'var(--bg-surface)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '600', transition: 'all 0.2s' }}
@@ -250,7 +257,6 @@ function ListingDetail() {
         </div>
       </div>
 
-      {/* ПОДКЛЮЧАЕМ КОМПОНЕНТ МОДАЛКИ */}
       <ConfirmationModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

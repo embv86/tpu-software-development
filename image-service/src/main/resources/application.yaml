@@ -1,14 +1,14 @@
 server:
-  port: 8084
+  port: ${SERVER_PORT:8084}
 
 spring:
   application:
     name: image-service
 
   datasource:
-    url: jdbc:postgresql://marketplace-db:5432/image_db
-    username: user
-    password: password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/marketplace_listings_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -31,18 +31,19 @@ spring:
       max-http-form-post-size: 30MB
 
   rabbitmq:
-    host: marketplace-rabbitmq
-    port: 5672
-    username: guest
-    password: guest
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 minio:
-  endpoint: http://marketplace-minio:9000
-  accessKey: minioadmin
-  secretKey: minioadmin
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  external-endpoint: ${MINIO_EXTERNAL_ENDPOINT:http://localhost:9000}
+  accessKey: ${MINIO_ACCESS_KEY:minioadmin}
+  secretKey: ${MINIO_SECRET_KEY:minioadmin}
   buckets:
-    raw: raw-images
-    processed: market-images
+    raw: ${MINIO_BUCKETS_RAW:raw-images}
+    processed: ${MINIO_BUCKETS_PROCESSED:market-images}
 
 image:
   target-width: 1200

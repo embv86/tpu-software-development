@@ -3,15 +3,15 @@ services:
     image: postgres:16-alpine
     container_name: marketplace-users-db
     environment:
-      POSTGRES_DB: marketplace_users_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_USERS_DB}
+      POSTGRES_USER: ${POSTGRES_USERS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_USERS_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_USERS_PORT}:5432"
     volumes:
       - pgdata_users:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d marketplace_users_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERS_USER} -d ${POSTGRES_USERS_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,15 +20,15 @@ services:
     image: postgres:16-alpine
     container_name: marketplace-listings-db
     environment:
-      POSTGRES_DB: marketplace_listings_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_LISTINGS_DB}
+      POSTGRES_USER: ${POSTGRES_LISTINGS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_LISTINGS_PASSWORD}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_LISTINGS_PORT}:5432"
     volumes:
       - pgdata_listings:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d marketplace_listings_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_LISTINGS_USER} -d ${POSTGRES_LISTINGS_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -37,15 +37,15 @@ services:
     image: postgres:16-alpine
     container_name: marketplace-chats-db
     environment:
-      POSTGRES_DB: marketplace_chats_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_CHATS_DB}
+      POSTGRES_USER: ${POSTGRES_CHATS_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_CHATS_PASSWORD}
     ports:
-      - "5434:5432"
+      - "${POSTGRES_CHATS_PORT}:5432"
     volumes:
       - pgdata_chats:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d marketplace_chats_db" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_CHATS_USER} -d ${POSTGRES_CHATS_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -54,11 +54,11 @@ services:
     image: rabbitmq:3-management
     container_name: marketplace-rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
@@ -69,11 +69,11 @@ services:
     image: minio/minio:latest
     container_name: marketplace-minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_API_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -91,14 +91,20 @@ services:
         - SERVICE_NAME=image-service
     container_name: marketplace-image-service
     ports:
-      - "8084:8084"
+      - "${IMAGE_SERVICE_PORT}:8084"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-listings:5432/marketplace_listings_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-      # ФИКС ОШИБКИ 500: Явно связываем Спринг с бакетами MinIO
-      - MINIO_BUCKETS_RAW=raw-images
-      - MINIO_BUCKETS_PROCESSED=market-images
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-listings:5432/${POSTGRES_LISTINGS_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_LISTINGS_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_LISTINGS_PASSWORD}
+      - MINIO_BUCKETS_RAW=${MINIO_BUCKET_RAW}
+      - MINIO_BUCKETS_PROCESSED=${MINIO_BUCKET_PROCESSED}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=${RABBITMQ_PORT}
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     depends_on:
       postgres-listings:
         condition: service_healthy
@@ -115,11 +121,12 @@ services:
         - SERVICE_NAME=user-service
     container_name: marketplace-user-service
     ports:
-      - "8081:8081"
+      - "${USER_SERVICE_PORT}:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-users:5432/marketplace_users_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-users:5432/${POSTGRES_USERS_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USERS_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_USERS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       postgres-users:
         condition: service_healthy
@@ -134,11 +141,15 @@ services:
         - SERVICE_NAME=listing-service
     container_name: marketplace-listing-service
     ports:
-      - "8082:8082"
+      - "${LISTING_SERVICE_PORT}:8082"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-listings:5432/marketplace_listings_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-listings:5432/${POSTGRES_LISTINGS_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_LISTINGS_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_LISTINGS_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=${RABBITMQ_PORT}
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     depends_on:
       postgres-listings:
         condition: service_healthy
@@ -153,7 +164,7 @@ services:
         - SERVICE_NAME=gateway-service
     container_name: marketplace-gateway-service
     ports:
-      - "8080:8080"
+      - "${GATEWAY_SERVICE_PORT}:8080"
     depends_on:
       - user-service
       - listing-service
@@ -166,11 +177,15 @@ services:
         - SERVICE_NAME=chat-service
     container_name: marketplace-chat-service
     ports:
-      - "8085:8085"
+      - "${CHAT_SERVICE_PORT}:8085"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-chats:5432/marketplace_chats_db
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-chats:5432/${POSTGRES_CHATS_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_CHATS_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_CHATS_PASSWORD}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=${RABBITMQ_PORT}
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     depends_on:
       postgres-chats:
         condition: service_healthy
@@ -179,21 +194,21 @@ services:
 
   notification-service:
     build:
-      context: .                  # Переключаем на корень проекта
-      dockerfile: Dockerfile      # Используем общий Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         - SERVICE_NAME=notification-service
     container_name: marketplace-notification-service
     ports:
-      - "8086:8086"
+      - "${NOTIFICATION_SERVICE_PORT}:8086"
     environment:
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_PORT=5672
-      - SPRING_RABBITMQ_USERNAME=guest
-      - SPRING_RABBITMQ_PASSWORD=guest
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     depends_on:
       rabbitmq:
-        condition: service_healthy # Ждем, пока Кролик залогирует ping
+        condition: service_healthy
 
   frontend:
     build:
@@ -201,12 +216,12 @@ services:
       dockerfile: Dockerfile
     container_name: marketplace-frontend
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT}:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8080
+      - VITE_API_URL=${VITE_API_URL}
     depends_on:
       - gateway-service
 

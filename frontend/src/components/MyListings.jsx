@@ -2,16 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { Loader2, PlusCircle, ShoppingBag, Trash2, Pencil } from 'lucide-react';
-import ConfirmationModal from './ConfirmationModal'; // ИМПОРТ МОДАЛКИ
+import ConfirmationModal from './ConfirmationModal'; 
 
 function MyListings() {
   const navigate = useNavigate();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- СТЕНТЫ ДЛЯ КАСТОМНОЙ МОДАЛКИ ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [listingIdToDelete, setListingIdToDelete] = useState(null);
+
+  // ФИКС MINIO: Функция замены адреса
+  const getValidImageUrl = (url) => {
+    if (!url) return null;
+    return url.replace('http://minio:9000', 'http://localhost:9000');
+  };
 
   useEffect(() => {
     fetchMyListings();
@@ -30,19 +35,16 @@ function MyListings() {
     }
   };
 
-  // Открывает модалку и запоминает ID лота
   const openDeleteModal = (id) => {
     setListingIdToDelete(id);
     setIsModalOpen(true);
   };
 
-  // Вызывается при нажатии "Удалить" в модалке
   const handleConfirmDelete = async () => {
     if (!listingIdToDelete) return;
     try {
       await api.delete(`/listings/${listingIdToDelete}`);
       setListings(listings.filter(item => item.id !== listingIdToDelete));
-      // alert("Объявление удалено") <- УБРАЛИ, ТАК КАК ПРИЛЕТИТ ОРАНЖЕВЫЙ ТОСТ!
     } catch (err) {
       alert("Не удалось удалить: " + err.message);
     } finally {
@@ -62,7 +64,6 @@ function MyListings() {
   return (
     <div style={{ maxWidth: '1250px', margin: '30px auto', padding: '0 20px' }}>
       
-      {/* ШАПКА РАЗДЕЛА */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h2 style={{ fontSize: '26px', fontWeight: '600', color: 'var(--text-main)', margin: 0 }}>Мои объявления</h2>
         
@@ -89,7 +90,6 @@ function MyListings() {
         </button>
       </div>
 
-      {/* ОСНОВНОЙ КОНТЕНТ */}
       {listings.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', background: 'var(--bg-surface)', border: '1px dashed var(--border-color)', borderRadius: '8px', textAlign: 'center', marginTop: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
           <ShoppingBag size={48} style={{ color: 'var(--text-muted)', marginBottom: '15px', opacity: 0.5 }} />
@@ -126,7 +126,10 @@ function MyListings() {
           justifyContent: 'center' 
         }}>
           {listings.map((item) => {
-            const coverImg = item.images?.[0]?.processedUrl || item.images?.[0]?.rawUrl || '';
+            const rawCoverImg = item.images?.[0]?.processedUrl || item.images?.[0]?.rawUrl || '';
+            // ФИКС MINIO: Пропускаем через фильтр
+            const coverImg = getValidImageUrl(rawCoverImg);
+
             return (
               <div key={item.id} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' }}>
                 <div style={{ height: '160px', background: 'var(--bg-element)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: 'pointer' }} onClick={() => navigate(`/catalog/${item.id}`)}>
@@ -145,7 +148,6 @@ function MyListings() {
                     >
                       <Pencil size={12} /> Изменить
                     </button>
-                    {/* ЗАМЕНИЛИ ХЕНДЛЕР НА openDeleteModal */}
                     <button 
                       onClick={() => openDeleteModal(item.id)} 
                       style={{ padding: '8px', background: 'none', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -160,7 +162,6 @@ function MyListings() {
         </div>
       )}
 
-      {/* ПОДКЛЮЧАЕМ КОМПОНЕНТ МОДАЛКИ */}
       <ConfirmationModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
