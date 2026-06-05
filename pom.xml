@@ -24,6 +24,9 @@
         <module>user-service</module>
         <module>gateway-service</module>
         <module>listing-service</module>
+        <module>image-service</module>
+        <module>chat-service</module>
+        <module>notification-service</module>
     </modules>
 
     <dependencyManagement>

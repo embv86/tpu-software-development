@@ -2,6 +2,7 @@ package com.marketplace.gateway.filter;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -24,7 +25,6 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    // Белый список URL, которые шлюз пропускает без проверки токена
     private static final List<String> openApiEndpoints = List.of(
             "/api/v1/auth/register",
             "/api/v1/auth/login"
@@ -43,17 +43,18 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
 
-            // 1. Проверяем, входит ли путь в белый список
+            if (request.getMethod() == HttpMethod.OPTIONS) {
+                return chain.filter(exchange);
+            }
+
             boolean isOpenEndpoint = openApiEndpoints.stream().anyMatch(path::startsWith);
 
-            // 2. Если это GET-запрос к объявлениям, его тоже разрешаем смотреть гостям
             boolean isGetListings = request.getMethod() == HttpMethod.GET && path.startsWith("/api/v1/listings");
 
             if (isOpenEndpoint || isGetListings) {
-                return chain.filter(exchange); // Пропускаем дальше без авторизации
+                return chain.filter(exchange);
             }
 
-            // 3. Для всех остальных запросов (POST, PUT, DELETE) требуем токен
             if (!request.getHeaders().containsKey("Authorization")) {
                 return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
             }
@@ -67,14 +68,23 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
             try {
                 SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
                 Claims claims = Jwts.parser()
                         .verifyWith(key)
                         .build()
                         .parseSignedClaims(token)
                         .getPayload();
 
-                List<String> roles = claims.get("roles", List.class);
+                List<?> rawRoles = claims.get("roles", List.class);
+                List<String> roles = rawRoles != null
+                        ? rawRoles.stream().map(Object::toString).toList()
+                        : List.of();
+
                 String userId = claims.getId();
+
+                if (userId == null) {
+                    throw new RuntimeException("User ID (jti claim) missing in token");
+                }
 
                 ServerHttpRequest mutatedRequest = request.mutate()
                         .header("X-User-Id", userId)
@@ -84,6 +94,7 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
             } catch (Exception e) {
+                System.out.println(">>> [GATEWAY AUTH ERROR] Path: " + path + " | Error: " + e.getMessage());
                 return onError(exchange, "Invalid Token", HttpStatus.FORBIDDEN);
             }
         };

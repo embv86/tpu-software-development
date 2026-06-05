@@ -29,11 +29,11 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll() // Сюда пускаем без фильтров шлюза
+                        .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/**").permitAll()
-                        .anyRequest().authenticated()                  // Для остального нужен X-User-Id
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").permitAll()
+                        .anyRequest().authenticated()
                 )
-                // ВСТАВЛЯЕМ НАШ ФИЛЬТР В ЦЕПОЧКУ ПОСТАВЩИКОВ БЕЗОПАСНОСТИ
                 .addFilterBefore(new GatewayHeaderFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

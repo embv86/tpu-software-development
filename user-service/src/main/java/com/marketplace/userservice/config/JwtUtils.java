@@ -25,7 +25,6 @@ public class JwtUtils {
     public String generateToken(User user) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
-        // Клеймы (payload), которые пригодятся API Gateway и другим сервисам
         Map<String, Object> claims = new HashMap<>();
         claims.put("roles", user.getRoles().stream().map(Enum::name).collect(Collectors.toList()));
         claims.put("firstName", user.getFirstName());

@@ -1,10 +1,19 @@
 package com.marketplace.listingservice.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserDto {
     private Long id;
     private String email;
-    // Сюда можно добавить firstName, lastName, если они есть у тебя в User entity
+    private String firstName;
+    private String lastName;
+    private String city;
+    private String phone;
 }
