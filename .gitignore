@@ -29,4 +29,8 @@ ldlog.resources
 /nbdist/
 /.nb-gradle/
 
+### Node / local data ###
+node_modules/
+data/
+
 .env

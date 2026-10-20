@@ -9,7 +9,7 @@ services:
     ports:
       - "${POSTGRES_USERS_PORT}:5432"
     volumes:
-      - C:/Users/erdem/Desktop/ТПУ/Конструирование ПО - Сливенко/data/users_db:/var/lib/postgresql/data
+      - ./data/users_db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERS_USER} -d ${POSTGRES_USERS_DB}"]
       interval: 5s
@@ -26,7 +26,7 @@ services:
     ports:
       - "${POSTGRES_LISTINGS_PORT}:5432"
     volumes:
-      - C:/Users/erdem/Desktop/ТПУ/Конструирование ПО - Сливенко/data/listings_db:/var/lib/postgresql/data
+      - ./data/listings_db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_LISTINGS_USER} -d ${POSTGRES_LISTINGS_DB}"]
       interval: 5s
@@ -43,7 +43,7 @@ services:
     ports:
       - "${POSTGRES_CHATS_PORT}:5432"
     volumes:
-      - C:/Users/erdem/Desktop/ТПУ/Конструирование ПО - Сливенко/data/chats_db:/var/lib/postgresql/data
+      - ./data/chats_db:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_CHATS_USER} -d ${POSTGRES_CHATS_DB}" ]
       interval: 5s
@@ -75,7 +75,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - C:/Users/erdem/Desktop/ТПУ/Конструирование ПО - Сливенко/data/minio_data:/data
+      - ./data/minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
@@ -127,6 +127,10 @@ services:
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USERS_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_USERS_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=${RABBITMQ_PORT}
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     depends_on:
       postgres-users:
         condition: service_healthy

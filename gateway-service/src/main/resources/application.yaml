@@ -58,8 +58,8 @@ spring:
           uri: ${CHAT_SERVICE_URI:http://chat-service:8085}
           predicates:
             - Path=/api/v1/chats/**
-          # filters:
-          #   - JwtAuthenticationFilter
+          filters:
+            - JwtAuthenticationFilter
 
         - id: notification-websocket
           uri: ${NOTIFICATION_SERVICE_URI:ws://notification-service:8086}

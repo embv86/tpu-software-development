@@ -1,3 +1,5 @@
 databaseChangeLog:
   - include:
       file: db/changelog/changesets/001-create-listings-table.yaml
+  - include:
+      file: db/changelog/changesets/002-create-images-table.yaml

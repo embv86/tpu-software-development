@@ -1,8 +1,5 @@
 package com.marketplace.userservice.config;
 
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -14,9 +11,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
 
-    public static final String USER_EXCHANGE = "user.exchange";
-    public static final String USER_DELETED_LISTING_QUEUE = "user.deleted.listing.queue";
-    public static final String USER_DELETED_ROUTING_KEY = "user.event.deleted";
+    public static final String MARKETPLACE_EXCHANGE = "marketplace.exchange";
+    public static final String USER_DELETED_ROUTING_KEY = "user.deleted.event";
 
     @Bean
     public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
@@ -26,19 +22,8 @@ public class RabbitMqConfig {
     }
 
     @Bean
-    public TopicExchange userExchange() {
-        TopicExchange exchange = new TopicExchange(USER_EXCHANGE);
-        return exchange;
-    }
-
-    @Bean
-    public Queue userDeletedListingQueue() {
-        return new Queue(USER_DELETED_LISTING_QUEUE, true);
-    }
-
-    @Bean
-    public Binding bindingUserDeleted(Queue userDeletedListingQueue, TopicExchange userExchange) {
-        return BindingBuilder.bind(userDeletedListingQueue).to(userExchange).with(USER_DELETED_ROUTING_KEY);
+    public TopicExchange marketplaceExchange() {
+        return new TopicExchange(MARKETPLACE_EXCHANGE);
     }
 
     @Bean

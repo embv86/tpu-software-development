@@ -20,7 +20,7 @@ public class UserEventPublisher {
         log.info("Отправка события удаления пользователя в RabbitMQ для ID: {}", userId);
 
         rabbitTemplate.convertAndSend(
-                RabbitMqConfig.USER_EXCHANGE,
+                RabbitMqConfig.MARKETPLACE_EXCHANGE,
                 RabbitMqConfig.USER_DELETED_ROUTING_KEY,
                 event
         );

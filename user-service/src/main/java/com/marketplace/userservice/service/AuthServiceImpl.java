@@ -33,8 +33,6 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Error: Phone number is already in use!");
         }
 
-        System.out.println(">>> [LOGIN DEBUG] Полученный пароль до хэширования '" + request.getPassword() + "'");
-
         User user = User.builder()
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
@@ -47,8 +45,6 @@ public class AuthServiceImpl implements AuthService {
 
         User savedUser = userRepository.save(user);
         String token = jwtUtils.generateToken(savedUser);
-
-        System.out.println(">>> [LOGIN DEBUG] Хэш из данных пароля + '" + token +"'");
 
         return new AuthResponse(
                 token,
@@ -64,15 +60,11 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Error: User not found!"));
 
-        System.out.println(">>> [LOGIN DEBUG] Полученный пароль до хэширования '" + request.getPassword() + "'");
-
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Error: Invalid password!");
         }
 
         String token = jwtUtils.generateToken(user);
-
-        System.out.println(">>> [LOGIN DEBUG] Хэш из данных пароля + '" + token +"'");
 
         return new AuthResponse(
                 token,
